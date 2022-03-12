@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>Tags on terakoya</title>
+    <link>https://kiwamizamurai.github.io/tags/</link>
+    <description>Recent content in Tags on terakoya</description>
+    <image>
+      <url>https://avatars.githubusercontent.com/u/24860100</url>
+      <link>https://avatars.githubusercontent.com/u/24860100</link>
+    </image>
+    <generator>Hugo -- gohugo.io</generator>
+    <lastBuildDate>Sun, 06 Mar 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://kiwamizamurai.github.io/tags/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>Katex</title>
+      <link>https://kiwamizamurai.github.io/tags/katex/</link>
+      <pubDate>Sun, 06 Mar 2022 00:00:00 +0000</pubDate>
+      
+      <guid>https://kiwamizamurai.github.io/tags/katex/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Latex</title>
+      <link>https://kiwamizamurai.github.io/tags/latex/</link>
+      <pubDate>Sun, 06 Mar 2022 00:00:00 +0000</pubDate>
+      
+      <guid>https://kiwamizamurai.github.io/tags/latex/</guid>
+      <description></description>
+    </item>
+    
+  </channel>
+</rss>
