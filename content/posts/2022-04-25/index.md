@@ -40,7 +40,7 @@ In this post, I am going to explain how mathematics is involved with Neural Netw
 
 # Content
 
-this post was written when I was a junior student. Therefore, there might be some mistakes. Please leave the comment below.
+`this post was written when I was a junior student. Therefore, there might be some mistakes. Please leave the comment below.`
 
 ## Prerequisites
 
