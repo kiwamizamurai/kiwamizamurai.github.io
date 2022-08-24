@@ -27,7 +27,7 @@ cover:
     relative: false # when using page bundles set this to true
     hidden: true # only hide on current single page
 editPost:
-    URL: "https://github.com/umasikate/content/posts"
+    URL: "https://github.com/umasikate/content"
     Text: "Suggest Changes" # edit text
     appendFilePath: true # to append file path to Edit link
 ---
@@ -148,7 +148,7 @@ my_dbt_project:
  poetry run dbt debug --project-dir ./ --profiles-dir ./
 ```
 
-4. create a macro `tmp/my_dbt_project****/****macros****/****get_custom_schema.sql` for custom schema so that we can use multiple databases
+4. create a macro `tmp/my_dbt_project/macros/get_custom_schema.sql` for custom schema so that we can use multiple databases
 
 ```sql
 {% macro generate_schema_name(custom_schema_name, node) -%}
