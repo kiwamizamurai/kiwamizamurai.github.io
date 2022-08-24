@@ -1,0 +1,457 @@
+<!doctype html><html lang=en dir=auto>
+<head><meta charset=utf-8>
+<meta http-equiv=x-ua-compatible content="IE=edge">
+<meta name=viewport content="width=device-width,initial-scale=1,shrink-to-fit=no">
+<meta name=robots content="index, follow">
+<title>Build Modern Data Warehouse with dbt-athena | terakoya</title>
+<meta name=keywords content="dbt,aws athena">
+<meta name=description content="useful data warehouse">
+<meta name=author content="umasikate">
+<link rel=canonical href=https://kiwamizamurai.github.io/posts/2022-08-25/>
+<link crossorigin=anonymous href=/assets/css/stylesheet.min.c88963fe2d79462000fd0fb1b3737783c32855d340583e4523343f8735c787f0.css integrity="sha256-yIlj/i15RiAA/Q+xs3N3g8MoVdNAWD5FIzQ/hzXHh/A=" rel="preload stylesheet" as=style>
+<link rel=preload href=https://avatars.githubusercontent.com/u/24860100 as=image>
+<script defer crossorigin=anonymous src=/assets/js/highlight.min.7680afc38aa6b15ddf158a4f3780b7b1f7dde7e91d26f073e6229bb7a0793c92.js integrity="sha256-doCvw4qmsV3fFYpPN4C3sffd5+kdJvBz5iKbt6B5PJI=" onload=hljs.initHighlightingOnLoad()></script>
+<link rel=icon href=https://avatars.githubusercontent.com/u/24860100>
+<link rel=icon type=image/png sizes=16x16 href=https://avatars.githubusercontent.com/u/24860100>
+<link rel=icon type=image/png sizes=32x32 href=https://avatars.githubusercontent.com/u/24860100>
+<link rel=apple-touch-icon href=https://avatars.githubusercontent.com/u/24860100>
+<link rel=mask-icon href=https://avatars.githubusercontent.com/u/24860100>
+<meta name=theme-color content="#2e2e33">
+<meta name=msapplication-TileColor content="#2e2e33">
+<noscript>
+<style>#theme-toggle,.top-link{display:none}</style>
+<style>@media(prefers-color-scheme:dark){:root{--theme:rgb(29, 30, 32);--entry:rgb(46, 46, 51);--primary:rgb(218, 218, 219);--secondary:rgb(155, 156, 157);--tertiary:rgb(65, 66, 68);--content:rgb(196, 196, 197);--hljs-bg:rgb(46, 46, 51);--code-bg:rgb(55, 56, 62);--border:rgb(51, 51, 51)}.list{background:var(--theme)}.list:not(.dark)::-webkit-scrollbar-track{background:0 0}.list:not(.dark)::-webkit-scrollbar-thumb{border-color:var(--theme)}}</style>
+</noscript>
+<link rel=stylesheet href=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css integrity=sha384-MlJdn/WNKDGXveldHDdyRP1R4CTHr3FeuDNfhsLPYrq2t0UBkUdK2jyTnXPEK1NQ crossorigin=anonymous>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js integrity=sha384-VQ8d8WVFw0yHhCk5E8I86oOhv48xLpnDZx5T9GogA/Y84DcCKWXDmSDfn13bzFZY crossorigin=anonymous></script>
+<script defer src=https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js integrity=sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR crossorigin=anonymous onload=renderMathInElement(document.body)></script>
+<script>document.addEventListener("DOMContentLoaded",function(){renderMathInElement(document.body,{delimiters:[{left:"$$",right:"$$",display:!0},{left:"$",right:"$",display:!1}]})})</script>
+<meta property="og:title" content="Build Modern Data Warehouse with dbt-athena">
+<meta property="og:description" content="useful data warehouse">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://kiwamizamurai.github.io/posts/2022-08-25/">
+<meta property="og:image" content="https://kiwamizamurai.github.io/%3Cimage%20path/url%3E"><meta property="article:section" content="posts">
+<meta property="article:published_time" content="2022-04-25T00:00:00+00:00">
+<meta property="article:modified_time" content="2022-04-25T00:00:00+00:00"><meta property="og:site_name" content="terakoya">
+<meta name=twitter:card content="summary_large_image">
+<meta name=twitter:image content="https://kiwamizamurai.github.io/%3Cimage%20path/url%3E">
+<meta name=twitter:title content="Build Modern Data Warehouse with dbt-athena">
+<meta name=twitter:description content="useful data warehouse">
+<script type=application/ld+json>{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[{"@type":"ListItem","position":1,"name":"Posts","item":"https://kiwamizamurai.github.io/posts/"},{"@type":"ListItem","position":2,"name":"Build Modern Data Warehouse with dbt-athena","item":"https://kiwamizamurai.github.io/posts/2022-08-25/"}]}</script>
+<script type=application/ld+json>{"@context":"https://schema.org","@type":"BlogPosting","headline":"Build Modern Data Warehouse with dbt-athena","name":"Build Modern Data Warehouse with dbt-athena","description":"useful data warehouse","keywords":["dbt","aws athena"],"articleBody":"Abstruct With the development of modern data stacks, it is getting way easy to establish an useful data infrastructure. A lot of people spent much time to investigate and build them. However, as for dbt x aws, there are no resources on the internet. Therefore, I am going to give you a lecture about that.\nGoal I reckon that providing the results makes you understood more efficiently, so pasting some pictures.\nSome people might be surprised because of the multiple databases. Actually, the idea behind the dbt is to use single database.\n https://docs.getdbt.com/docs/faqs/connecting-to-two-dbs-not-allowed  Content First of all, I am going to split my data-warehouse into 4 layers for better data management.\n raw layer  store data as raw format, responsible for copying the datasource   interface layer  canonicalize data   warehouse layer  build the specific domain data by aggregation   mart layer  store data for reverseETL    Prerequisites In addition, I assume that the required infra resources such as athena-database have already been created. In my case, those are produced by terraform. The sample code is located on here.\n https://github.com/kiwamizamurai/tmp  Steps Ok we are ready. The instruction itself is straightforward.\n install dbt-athena and create project  mkdir tmp cd tmp poetry init poetry add dbt-core poetry add dbt-athena-adapter configure dbt as follows\n❯ poetry run dbt init my_dbt_project 23:02:56 Running with dbt=1.2.0 23:02:56 Creating dbt configuration folder at /Users/your_name/.dbt Enter a name for your project (letters, digits, underscore): my_dbt_project Which database would you like to use? [1] athena (Don't see the one you want? https://docs.getdbt.com/docs/available-adapters) Enter a number: 1 s3_staging_dir (S3 location to store Athena query results and metadata): s3://hogehoge-bucket/athena_output_location/ region_name (AWS region of your Athena instance): ap-northeast-1 schema (Specify the schema (Athena database) to build models into (lowercase only)): some_athena_database_for_default database (Specify the database (Data catalog) to build models into (lowercase only)): awsdatacatalog 23:04:22 Profile my_dbt_project written to /Users/your_name/.dbt/profiles.yml using target's profile_template.yml and your supplied values. Run 'dbt debug' to validate the connection. 23:04:22 Your new dbt project \"my_dbt_project\" was created! For more information on how to configure the profiles.yml file, please consult the dbt documentation here: https://docs.getdbt.com/docs/configure-your-profile One more thing: Need help? Don't hesitate to reach out to us via GitHub issues or on Slack: https://community.getdbt.com/ Happy modeling! create tmp/my_dbt_project/profiles.yml for the connection of athena  By default, this configuration file is created at /Users/your_name/.dbt/profiles.yml if you belongs to some team, it might be a good idea to share this. And I do so.    my_dbt_project: target: dev outputs: dev: type: athena s3_staging_dir: s3://hogehoge-bucket/athena_output_location/ region_name: ap-northeast-1 schema: some_athena_database_for_default database: awsdatacatalog poll_interval: 5 work_group: some_athena_work_group # enforce_workgroup_configuration = false num_retries: 1 confirm the connection is healthy  poetry run dbt debug --project-dir ./ --profiles-dir ./ create a macro tmp/my_dbt_project****/****macros****/****get_custom_schema.sql for custom schema so that we can use multiple databases  {% macro generate_schema_name(custom_schema_name, node) -%} {%- set default_schema = target.schema -%} {%- if custome_schema_name is none -%} {{ default_schema }} {%- else -%} {{ custom_schema_name | trim }} {%- endif -%} {%- endmacro %} stratify the directory by modifying the models section of tmp/my_dbt_project/dbt_project.yml  the right-hand side is the name for actual aws_athena_database resource the left-hand side is the folder name corresponding to the resource  tmp/my_dbt_project/models/{raw,interface,warehouse,mart}      models: my_dbt_project: raw: schema: raw +materialized: table interface: schema: interface +materialized: table warehouse: schema: warehouse +materialized: table mart: schema: mart +materialized: table  prepare the sample athena-dataset, athena-table and csv file\n create athena-database which is called raw create athena-table in raw database which is called sample  image that name sample is the name of some particular table which is integrated from any datasource Parameter Location should be s3://hogehoge-bucket/athena_output_location/raw/sample/   upload sample.csv on s3://hogehoge-bucket/athena_output_location/raw/sample/    create tmp/my_dbt_project/models/raw/sample_source.yaml\n  version: 2 sources: - name: raw tables: - name: sample identifier: \"\\\"sample\\\"\" # like this columns: - name: col1 - name: col2 write a sample sql for the interface layer tmp/my_dbt_project/models/interface/sample.sql  need to specify external_location    {{ config( materialized='table', format='textfile', external_location='s3://hogehoge-bucket/athena_output_location/interface/sample/' ) }} select col1 from {{source('raw', 'sample')}} execute command  poetry run dbt run --project-dir ./ --profiles-dir ./  go into the aws console and confirm that athena-database and athena-table is created  miscellaneous When you create your own data-warehouse with your like-minded peers, you must want a coding rule on SQL. In this section, I am going to show you how to prepare team development.\n install library  poetry add sqlfluff  write a setting of sql linter  cd my_dbt_project touch .sqlfluff touch .sqlfluffignore .sqlfluff is like this\n[sqlfluff:rules] tab_space_size = 4 max_line_length = 80 indent_unit = space comma_style = trailing [sqlfluff:rules:L010] capitalisation_policy = lower [sqlfluff:rules:L011] # Aliasing preference for tables aliasing = explicit [sqlfluff:rules:L012] # Aliasing preference for columns aliasing = explicit [sqlfluff:rules:L014] capitalisation_policy = lower unquoted_identifiers_policy = column_aliases [sqlfluff:rules:L016] ignore_comment_lines = True max_line_length = 100 tab_space_size = 2 [sqlfluff] templater = dbt dialect = athena [sqlfluff:templater:dbt] project_dir = . profiles_dir = . profile = my_dbt_project target = dev .sqlfluffignore is like this\ndbt_packages/ macros/  confirm sqlfluff works well  ❯ poetry run sqlfluff lint ./models/mart/should_be_formatted.sql == [my_dbt_project/models/mart/should_be_formatted.sql] FAIL L: 1 | P: 1 | L050 | Files must not begin with newlines or whitespace. L: 10 | P: 1 | L046 | Jinja tags should have a single whitespace on either | side: {{config(materialized='table')}} L: 14 | P: 5 | L036 | Select targets should be on a new line unless there is | only one select target. L: 16 | P: 5 | L036 | Select targets should be on a new line unless there is | only one select target. L: 20 | P: 1 | L010 | Keywords must be lower case. L: 20 | P: 1 | L036 | Select targets should be on a new line unless there is | only one select target. L: 20 | P: 11 | L012 | Implicit/explicit aliasing of columns. L: 20 | P: 28 | L012 | Implicit/explicit aliasing of columns. All Finished 📜 🎉! Furthermore, I use this linter and formatter with pre-commit.\n.pre-commit-config.yaml\nrepos: - repo: https://github.com/pre-commit/pre-commit-hooks rev: v4.0.1 hooks: - id: trailing-whitespace - id: end-of-file-fixer - id: check-added-large-files args: ['--maxkb=60000'] - id: check-toml - id: check-yaml - id: check-json - id: detect-aws-credentials - id: detect-private-key - repo: https://github.com/sqlfluff/sqlfluff rev: 1.3.0 hooks: - id: sqlfluff-lint args: [\"--dialect\", \"athena\"] additional_dependencies: [\"dbt-athena-adapter\", \"sqlfluff-templater-dbt\"] If you have any questions or requests, please leave the comment below. And, I’ll be happy if you like and share this post. Thank you.\nReferences  https://github.com/Tomme/dbt-athena https://github.com/sqlfluff/sqlfluff https://docs.aws.amazon.com/athena/latest/ug/workgroups-troubleshooting.html https://zenn.dev/tenajima/articles/f4f99caab361c1 https://pre-commit.com/  ","wordCount":"1043","inLanguage":"en","image":"https://kiwamizamurai.github.io/%3Cimage%20path/url%3E","datePublished":"2022-04-25T00:00:00Z","dateModified":"2022-04-25T00:00:00Z","author":{"@type":"Person","name":"umasikate"},"mainEntityOfPage":{"@type":"WebPage","@id":"https://kiwamizamurai.github.io/posts/2022-08-25/"},"publisher":{"@type":"Organization","name":"terakoya","logo":{"@type":"ImageObject","url":"https://avatars.githubusercontent.com/u/24860100"}}}</script>
+</head>
+<body id=top>
+<script>localStorage.getItem("pref-theme")==="dark"?document.body.classList.add('dark'):localStorage.getItem("pref-theme")==="light"?document.body.classList.remove('dark'):window.matchMedia('(prefers-color-scheme: dark)').matches&&document.body.classList.add('dark')</script>
+<header class=header>
+<nav class=nav>
+<div class=logo>
+<a href=https://kiwamizamurai.github.io/ accesskey=h title="Home (Alt + H)">
+<img src=https://avatars.githubusercontent.com/u/24860100 alt=logo aria-label=logo height=35>Home</a>
+<span class=logo-switches>
+<button id=theme-toggle accesskey=t title="(Alt + T)"><svg id="moon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg><svg id="sun" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentcolor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+</button>
+</span>
+</div>
+<ul id=menu>
+<li>
+<a href=https://kiwamizamurai.github.io/posts/ title=posts>
+<span>posts</span>
+</a>
+</li>
+<li>
+<a href=https://kiwamizamurai.github.io/tags/ title=tags>
+<span>tags</span>
+</a>
+</li>
+<li>
+<a href=https://kiwamizamurai.github.io/search title="search (Alt + /)" accesskey=/>
+<span>search</span>
+</a>
+</li>
+</ul>
+</nav>
+</header>
+<main class=main>
+<article class=post-single>
+<header class=post-header>
+<div class=breadcrumbs><a href=https://kiwamizamurai.github.io/>Home</a>&nbsp;»&nbsp;<a href=https://kiwamizamurai.github.io/posts/>Posts</a></div>
+<h1 class=post-title>
+Build Modern Data Warehouse with dbt-athena
+</h1>
+<div class=post-description>
+useful data warehouse
+</div>
+<div class=post-meta><span title="2022-04-25 00:00:00 +0000 UTC">April 25, 2022</span>&nbsp;·&nbsp;5 min&nbsp;·&nbsp;umasikate&nbsp;|&nbsp;<a href=https://github.com/umasikate/content/posts/posts/2022-08-25/index.md rel="noopener noreferrer" target=_blank>Suggest Changes</a>
+</div>
+</header> <div class=toc>
+<details>
+<summary accesskey=c title="(Alt + C)">
+<span class=details>Table of Contents</span>
+</summary>
+<div class=inner><ul>
+<li>
+<a href=#abstruct aria-label=Abstruct>Abstruct</a></li>
+<li>
+<a href=#goal aria-label=Goal>Goal</a></li>
+<li>
+<a href=#content aria-label=Content>Content</a><ul>
+<li>
+<a href=#prerequisites aria-label=Prerequisites>Prerequisites</a></li>
+<li>
+<a href=#steps aria-label=Steps>Steps</a></li></ul>
+</li>
+<li>
+<a href=#miscellaneous aria-label=miscellaneous>miscellaneous</a></li>
+<li>
+<a href=#references aria-label=References>References</a>
+</li>
+</ul>
+</div>
+</details>
+</div>
+<div class=post-content><h1 id=abstruct>Abstruct<a hidden class=anchor aria-hidden=true href=#abstruct>#</a></h1>
+<p>With the development of modern data stacks, it is getting way easy to establish an useful data infrastructure. A lot of people spent much time to investigate and build them. However, as for dbt x aws, there are no resources on the internet. Therefore, I am going to give you a lecture about that.</p>
+<h1 id=goal>Goal<a hidden class=anchor aria-hidden=true href=#goal>#</a></h1>
+<p>I reckon that providing the results makes you understood more efficiently, so pasting some pictures.</p>
+<p><img loading=lazy src=./sample5.png alt=sample5>
+</p>
+<p><img loading=lazy src=./sample1.png alt=sample1>
+</p>
+<p><img loading=lazy src=./sample2.png alt=sample2>
+</p>
+<p><img loading=lazy src=./sample3.png alt=sample3>
+</p>
+<p><img loading=lazy src=./sample4.png alt=sample4>
+</p>
+<p>Some people might be surprised because of the multiple databases. Actually, the idea behind the dbt is to use single database.</p>
+<ul>
+<li><a href=https://docs.getdbt.com/docs/faqs/connecting-to-two-dbs-not-allowed>https://docs.getdbt.com/docs/faqs/connecting-to-two-dbs-not-allowed</a></li>
+</ul>
+<h1 id=content>Content<a hidden class=anchor aria-hidden=true href=#content>#</a></h1>
+<p>First of all, I am going to split my data-warehouse into 4 layers for better data management.</p>
+<ul>
+<li>raw layer
+<ul>
+<li>store data as raw format, responsible for copying the datasource</li>
+</ul>
+</li>
+<li>interface layer
+<ul>
+<li>canonicalize data</li>
+</ul>
+</li>
+<li>warehouse layer
+<ul>
+<li>build the specific domain data by aggregation</li>
+</ul>
+</li>
+<li>mart layer
+<ul>
+<li>store data for reverseETL</li>
+</ul>
+</li>
+</ul>
+<h2 id=prerequisites>Prerequisites<a hidden class=anchor aria-hidden=true href=#prerequisites>#</a></h2>
+<p>In addition, I assume that the required infra resources such as athena-database have already been created. In my case, those are produced by terraform. The sample code is located on here.</p>
+<ul>
+<li><a href=https://github.com/kiwamizamurai/tmp>https://github.com/kiwamizamurai/tmp</a></li>
+</ul>
+<h2 id=steps>Steps<a hidden class=anchor aria-hidden=true href=#steps>#</a></h2>
+<p>Ok we are ready. The instruction itself is straightforward.</p>
+<ol>
+<li>install dbt-athena and create project</li>
+</ol>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash>mkdir tmp
+cd tmp
+poetry init
+poetry add dbt-core
+poetry add dbt-athena-adapter
+</code></pre></div><p>configure dbt as follows</p>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash>❯ poetry run dbt init my_dbt_project
+23:02:56  Running with dbt<span style=color:#f92672>=</span>1.2.0
+23:02:56  Creating dbt configuration folder at /Users/your_name/.dbt
+Enter a name <span style=color:#66d9ef>for</span> your project <span style=color:#f92672>(</span>letters, digits, underscore<span style=color:#f92672>)</span>: my_dbt_project
+Which database would you like to use?
+<span style=color:#f92672>[</span>1<span style=color:#f92672>]</span> athena
+
+<span style=color:#f92672>(</span>Don<span style=color:#e6db74>&#39;t see the one you want? https://docs.getdbt.com/docs/available-adapters)
+</span><span style=color:#e6db74>
+</span><span style=color:#e6db74>Enter a number: 1
+</span><span style=color:#e6db74>s3_staging_dir (S3 location to store Athena query results and metadata): s3://hogehoge-bucket/athena_output_location/
+</span><span style=color:#e6db74>region_name (AWS region of your Athena instance): ap-northeast-1
+</span><span style=color:#e6db74>schema (Specify the schema (Athena database) to build models into (lowercase only)): some_athena_database_for_default
+</span><span style=color:#e6db74>database (Specify the database (Data catalog) to build models into (lowercase only)): awsdatacatalog
+</span><span style=color:#e6db74>23:04:22  Profile my_dbt_project written to /Users/your_name/.dbt/profiles.yml using target&#39;</span>s profile_template.yml and your supplied values. Run <span style=color:#e6db74>&#39;dbt debug&#39;</span> to validate the connection.
+23:04:22
+Your new dbt project <span style=color:#e6db74>&#34;my_dbt_project&#34;</span> was created!
+
+For more information on how to configure the profiles.yml file,
+please consult the dbt documentation here:
+
+  https://docs.getdbt.com/docs/configure-your-profile
+
+One more thing:
+
+Need help? Don<span style=color:#960050;background-color:#1e0010>&#39;</span>t hesitate to reach out to us via GitHub issues or on Slack:
+
+  https://community.getdbt.com/
+
+Happy modeling!
+</code></pre></div><ol start=2>
+<li>create <code>tmp/my_dbt_project/profiles.yml</code> for the connection of athena
+<ol>
+<li>By default, this configuration file is created at <code>/Users/your_name/.dbt/profiles.yml</code></li>
+<li>if you belongs to some team, it might be a good idea to share this. And I do so.</li>
+</ol>
+</li>
+</ol>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=color:#f92672>my_dbt_project</span>:
+  <span style=color:#f92672>target</span>: <span style=color:#ae81ff>dev</span>
+  <span style=color:#f92672>outputs</span>:
+    <span style=color:#f92672>dev</span>:
+      <span style=color:#f92672>type</span>: <span style=color:#ae81ff>athena</span>
+      <span style=color:#f92672>s3_staging_dir</span>: <span style=color:#ae81ff>s3://hogehoge-bucket/athena_output_location/</span>
+      <span style=color:#f92672>region_name</span>: <span style=color:#ae81ff>ap-northeast-1</span>
+      <span style=color:#f92672>schema</span>: <span style=color:#ae81ff>some_athena_database_for_default</span>
+      <span style=color:#f92672>database</span>: <span style=color:#ae81ff>awsdatacatalog</span>
+      <span style=color:#f92672>poll_interval</span>: <span style=color:#ae81ff>5</span>
+      <span style=color:#f92672>work_group</span>: <span style=color:#ae81ff>some_athena_work_group</span> <span style=color:#75715e># enforce_workgroup_configuration = false</span>
+      <span style=color:#f92672>num_retries</span>: <span style=color:#ae81ff>1</span>
+</code></pre></div><ol start=3>
+<li>confirm the connection is healthy</li>
+</ol>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash> poetry run dbt debug --project-dir ./ --profiles-dir ./
+</code></pre></div><ol start=4>
+<li>create a macro <code>tmp/my_dbt_project****/****macros****/****get_custom_schema.sql</code> for custom schema so that we can use multiple databases</li>
+</ol>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=color:#960050;background-color:#1e0010>{</span><span style=color:#f92672>%</span> macro generate_schema_name(custom_schema_name, node) <span style=color:#f92672>-%</span><span style=color:#960050;background-color:#1e0010>}</span>
+  <span style=color:#960050;background-color:#1e0010>{</span><span style=color:#f92672>%-</span> <span style=color:#66d9ef>set</span> default_schema <span style=color:#f92672>=</span> target.<span style=color:#66d9ef>schema</span> <span style=color:#f92672>-%</span><span style=color:#960050;background-color:#1e0010>}</span>
+  <span style=color:#960050;background-color:#1e0010>{</span><span style=color:#f92672>%-</span> <span style=color:#66d9ef>if</span> custome_schema_name <span style=color:#66d9ef>is</span> <span style=color:#66d9ef>none</span> <span style=color:#f92672>-%</span><span style=color:#960050;background-color:#1e0010>}</span>
+    <span style=color:#960050;background-color:#1e0010>{{</span> default_schema <span style=color:#960050;background-color:#1e0010>}}</span>
+  <span style=color:#960050;background-color:#1e0010>{</span><span style=color:#f92672>%-</span> <span style=color:#66d9ef>else</span> <span style=color:#f92672>-%</span><span style=color:#960050;background-color:#1e0010>}</span>
+    <span style=color:#960050;background-color:#1e0010>{{</span> custom_schema_name <span style=color:#f92672>|</span> <span style=color:#66d9ef>trim</span> <span style=color:#960050;background-color:#1e0010>}}</span>
+  <span style=color:#960050;background-color:#1e0010>{</span><span style=color:#f92672>%-</span> endif <span style=color:#f92672>-%</span><span style=color:#960050;background-color:#1e0010>}</span>
+<span style=color:#960050;background-color:#1e0010>{</span><span style=color:#f92672>%-</span> endmacro <span style=color:#f92672>%</span><span style=color:#960050;background-color:#1e0010>}</span>
+</code></pre></div><ol start=5>
+<li>stratify the directory by modifying the models section of <code>tmp/my_dbt_project/dbt_project.yml</code>
+<ol>
+<li>the right-hand side is the name for actual <code>aws_athena_database</code> resource</li>
+<li>the left-hand side is the folder name corresponding to the resource
+<ol>
+<li><code>tmp/my_dbt_project/models/{raw,interface,warehouse,mart}</code></li>
+</ol>
+</li>
+</ol>
+</li>
+</ol>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=color:#f92672>models</span>:
+  <span style=color:#f92672>my_dbt_project</span>:
+    <span style=color:#f92672>raw</span>:
+      <span style=color:#f92672>schema</span>: <span style=color:#ae81ff>raw</span>
+      <span style=color:#f92672>+materialized</span>: <span style=color:#ae81ff>table</span>
+    <span style=color:#f92672>interface</span>:
+      <span style=color:#f92672>schema</span>: <span style=color:#ae81ff>interface</span>
+      <span style=color:#f92672>+materialized</span>: <span style=color:#ae81ff>table</span>
+    <span style=color:#f92672>warehouse</span>:
+      <span style=color:#f92672>schema</span>: <span style=color:#ae81ff>warehouse</span>
+      <span style=color:#f92672>+materialized</span>: <span style=color:#ae81ff>table</span>
+    <span style=color:#f92672>mart</span>:
+      <span style=color:#f92672>schema</span>: <span style=color:#ae81ff>mart</span>
+      <span style=color:#f92672>+materialized</span>: <span style=color:#ae81ff>table</span>
+</code></pre></div><ol start=6>
+<li>
+<p>prepare the sample athena-dataset, athena-table and csv file</p>
+<ol>
+<li>create athena-database which is called <code>raw</code></li>
+<li>create athena-table in <code>raw</code> database which is called sample
+<ol>
+<li>image that name sample is the name of some particular table which is integrated from any datasource</li>
+<li>Parameter Location should be <code>s3://hogehoge-bucket/athena_output_location/raw/sample/</code></li>
+</ol>
+</li>
+<li>upload sample.csv on <code>s3://hogehoge-bucket/athena_output_location/raw/sample/</code></li>
+</ol>
+</li>
+<li>
+<p>create <code>tmp/my_dbt_project/models/raw/sample_source.yaml</code></p>
+</li>
+</ol>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=color:#f92672>version</span>: <span style=color:#ae81ff>2</span>
+
+<span style=color:#f92672>sources</span>:
+  - <span style=color:#f92672>name</span>: <span style=color:#ae81ff>raw</span>
+    <span style=color:#f92672>tables</span>:
+      - <span style=color:#f92672>name</span>: <span style=color:#ae81ff>sample</span>
+        <span style=color:#f92672>identifier</span>: <span style=color:#e6db74>&#34;\&#34;sample\&#34;&#34;</span> <span style=color:#75715e># like this</span>
+        <span style=color:#f92672>columns</span>:
+          - <span style=color:#f92672>name</span>: <span style=color:#ae81ff>col1</span>
+          - <span style=color:#f92672>name</span>: <span style=color:#ae81ff>col2</span>
+</code></pre></div><ol start=8>
+<li>write a sample sql for the interface layer <code>tmp/my_dbt_project/models/interface/sample.sql</code>
+<ol>
+<li>need to specify <code>external_location</code></li>
+</ol>
+</li>
+</ol>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-sql data-lang=sql><span style=color:#960050;background-color:#1e0010>{{</span>
+    config(
+        materialized<span style=color:#f92672>=</span><span style=color:#e6db74>&#39;table&#39;</span>,
+        format<span style=color:#f92672>=</span><span style=color:#e6db74>&#39;textfile&#39;</span>,
+        external_location<span style=color:#f92672>=</span><span style=color:#e6db74>&#39;s3://hogehoge-bucket/athena_output_location/interface/sample/&#39;</span>
+    )
+<span style=color:#960050;background-color:#1e0010>}}</span>
+
+<span style=color:#66d9ef>select</span> col1 <span style=color:#66d9ef>from</span> <span style=color:#960050;background-color:#1e0010>{{</span><span style=color:#66d9ef>source</span>(<span style=color:#e6db74>&#39;raw&#39;</span>, <span style=color:#e6db74>&#39;sample&#39;</span>)<span style=color:#960050;background-color:#1e0010>}}</span>
+</code></pre></div><ol start=9>
+<li>execute command</li>
+</ol>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash>poetry run dbt run --project-dir ./ --profiles-dir ./
+</code></pre></div><ol>
+<li>go into the aws console and confirm that athena-database and athena-table is created</li>
+</ol>
+<h1 id=miscellaneous>miscellaneous<a hidden class=anchor aria-hidden=true href=#miscellaneous>#</a></h1>
+<p>When you create your own data-warehouse with your like-minded peers, you must want a coding rule on SQL. In this section, I am going to show you how to prepare team development.</p>
+<ol>
+<li>install library</li>
+</ol>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash>poetry add sqlfluff
+</code></pre></div><ol>
+<li>write a setting of sql linter</li>
+</ol>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash>cd my_dbt_project
+touch .sqlfluff
+touch .sqlfluffignore
+</code></pre></div><p><code>.sqlfluff</code> is like this</p>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml>[<span style=color:#ae81ff>sqlfluff:rules]</span>
+<span style=color:#ae81ff>tab_space_size = 4</span>
+<span style=color:#ae81ff>max_line_length = 80</span>
+<span style=color:#ae81ff>indent_unit = space</span>
+<span style=color:#ae81ff>comma_style = trailing</span>
+
+[<span style=color:#ae81ff>sqlfluff:rules:L010]</span>
+<span style=color:#ae81ff>capitalisation_policy = lower</span>
+
+[<span style=color:#ae81ff>sqlfluff:rules:L011]</span>
+<span style=color:#75715e># Aliasing preference for tables</span>
+<span style=color:#ae81ff>aliasing = explicit</span>
+
+[<span style=color:#ae81ff>sqlfluff:rules:L012]</span>
+<span style=color:#75715e># Aliasing preference for columns</span>
+<span style=color:#ae81ff>aliasing = explicit</span>
+
+[<span style=color:#ae81ff>sqlfluff:rules:L014]</span>
+<span style=color:#ae81ff>capitalisation_policy = lower</span>
+<span style=color:#ae81ff>unquoted_identifiers_policy = column_aliases</span>
+
+[<span style=color:#ae81ff>sqlfluff:rules:L016]</span>
+<span style=color:#ae81ff>ignore_comment_lines = True</span>
+<span style=color:#ae81ff>max_line_length = 100</span>
+<span style=color:#ae81ff>tab_space_size = 2</span>
+
+[<span style=color:#ae81ff>sqlfluff]</span>
+<span style=color:#ae81ff>templater = dbt</span>
+<span style=color:#ae81ff>dialect = athena</span>
+
+[<span style=color:#ae81ff>sqlfluff:templater:dbt]</span>
+<span style=color:#ae81ff>project_dir = .</span>
+<span style=color:#ae81ff>profiles_dir = .</span>
+<span style=color:#ae81ff>profile = my_dbt_project</span>
+<span style=color:#ae81ff>target = dev</span>
+</code></pre></div><p><code>.sqlfluffignore</code> is like this</p>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=color:#ae81ff>dbt_packages/</span>
+<span style=color:#ae81ff>macros/</span>
+</code></pre></div><ol>
+<li>confirm sqlfluff works well</li>
+</ol>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-bash data-lang=bash>❯ poetry run sqlfluff lint ./models/mart/should_be_formatted.sql
+<span style=color:#f92672>==</span> <span style=color:#f92672>[</span>my_dbt_project/models/mart/should_be_formatted.sql<span style=color:#f92672>]</span> FAIL
+
+L:   <span style=color:#ae81ff>1</span> | P:   <span style=color:#ae81ff>1</span> | L050 | Files must not begin with newlines or whitespace.
+L:  <span style=color:#ae81ff>10</span> | P:   <span style=color:#ae81ff>1</span> | L046 | Jinja tags should have a single whitespace on either
+                       | side: <span style=color:#f92672>{{</span>config<span style=color:#f92672>(</span>materialized<span style=color:#f92672>=</span><span style=color:#e6db74>&#39;table&#39;</span><span style=color:#f92672>)}}</span>
+L:  <span style=color:#ae81ff>14</span> | P:   <span style=color:#ae81ff>5</span> | L036 | Select targets should be on a new line unless there is
+                       | only one <span style=color:#66d9ef>select</span> target.
+L:  <span style=color:#ae81ff>16</span> | P:   <span style=color:#ae81ff>5</span> | L036 | Select targets should be on a new line unless there is
+                       | only one <span style=color:#66d9ef>select</span> target.
+L:  <span style=color:#ae81ff>20</span> | P:   <span style=color:#ae81ff>1</span> | L010 | Keywords must be lower <span style=color:#66d9ef>case</span>.
+L:  <span style=color:#ae81ff>20</span> | P:   <span style=color:#ae81ff>1</span> | L036 | Select targets should be on a new line unless there is
+                       | only one <span style=color:#66d9ef>select</span> target.
+L:  <span style=color:#ae81ff>20</span> | P:  <span style=color:#ae81ff>11</span> | L012 | Implicit/explicit aliasing of columns.
+L:  <span style=color:#ae81ff>20</span> | P:  <span style=color:#ae81ff>28</span> | L012 | Implicit/explicit aliasing of columns.
+All Finished 📜 🎉!
+</code></pre></div><p>Furthermore, I use this linter and formatter with <code>pre-commit.</code></p>
+<p><code>.pre-commit-config.yaml</code></p>
+<div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=color:#f92672>repos</span>:
+  - <span style=color:#f92672>repo</span>: <span style=color:#ae81ff>https://github.com/pre-commit/pre-commit-hooks</span>
+    <span style=color:#f92672>rev</span>: <span style=color:#ae81ff>v4.0.1</span>
+    <span style=color:#f92672>hooks</span>:
+    -   <span style=color:#f92672>id</span>: <span style=color:#ae81ff>trailing-whitespace</span>
+    -   <span style=color:#f92672>id</span>: <span style=color:#ae81ff>end-of-file-fixer</span>
+    -   <span style=color:#f92672>id</span>: <span style=color:#ae81ff>check-added-large-files</span>
+        <span style=color:#f92672>args</span>: [<span style=color:#e6db74>&#39;--maxkb=60000&#39;</span>]
+    -   <span style=color:#f92672>id</span>: <span style=color:#ae81ff>check-toml</span>
+    -   <span style=color:#f92672>id</span>: <span style=color:#ae81ff>check-yaml</span>
+    -   <span style=color:#f92672>id</span>: <span style=color:#ae81ff>check-json</span>
+    -   <span style=color:#f92672>id</span>: <span style=color:#ae81ff>detect-aws-credentials</span>
+    -   <span style=color:#f92672>id</span>: <span style=color:#ae81ff>detect-private-key</span>
+  - <span style=color:#f92672>repo</span>: <span style=color:#ae81ff>https://github.com/sqlfluff/sqlfluff</span>
+    <span style=color:#f92672>rev</span>: <span style=color:#ae81ff>1.3.0</span>
+    <span style=color:#f92672>hooks</span>:
+      - <span style=color:#f92672>id</span>: <span style=color:#ae81ff>sqlfluff-lint</span>
+        <span style=color:#f92672>args</span>: [<span style=color:#e6db74>&#34;--dialect&#34;</span>, <span style=color:#e6db74>&#34;athena&#34;</span>]
+        <span style=color:#f92672>additional_dependencies</span>:
+          [<span style=color:#e6db74>&#34;dbt-athena-adapter&#34;</span>, <span style=color:#e6db74>&#34;sqlfluff-templater-dbt&#34;</span>]
+</code></pre></div><p>If you have any questions or requests, please leave the comment below. And, I’ll be happy if you like and share this post. Thank you.</p>
+<h1 id=references>References<a hidden class=anchor aria-hidden=true href=#references>#</a></h1>
+<ul>
+<li><a href=https://github.com/Tomme/dbt-athena>https://github.com/Tomme/dbt-athena</a></li>
+<li><a href=https://github.com/sqlfluff/sqlfluff>https://github.com/sqlfluff/sqlfluff</a></li>
+<li><a href=https://docs.aws.amazon.com/athena/latest/ug/workgroups-troubleshooting.html>https://docs.aws.amazon.com/athena/latest/ug/workgroups-troubleshooting.html</a></li>
+<li><a href=https://zenn.dev/tenajima/articles/f4f99caab361c1>https://zenn.dev/tenajima/articles/f4f99caab361c1</a></li>
+<li><a href=https://pre-commit.com/>https://pre-commit.com/</a></li>
+</ul>
+</div>
+<footer class=post-footer>
+<ul class=post-tags>
+<li><a href=https://kiwamizamurai.github.io/tags/dbt/>dbt</a></li>
+<li><a href=https://kiwamizamurai.github.io/tags/aws-athena/>aws athena</a></li>
+</ul>
+<nav class=paginav>
+<a class=next href=https://kiwamizamurai.github.io/posts/2022-04-25/>
+<span class=title>Next Page »</span>
+<br>
+<span>How to implement NN from scratch</span>
+</a>
+</nav>
+<div class=share-buttons>
+<a target=_blank rel="noopener noreferrer" aria-label="share Build Modern Data Warehouse with dbt-athena on twitter" href="https://twitter.com/intent/tweet/?text=Build%20Modern%20Data%20Warehouse%20with%20dbt-athena&url=https%3a%2f%2fkiwamizamurai.github.io%2fposts%2f2022-08-25%2f&hashtags=dbt%2cawsathena"><svg viewBox="0 0 512 512"><path d="M449.446.0C483.971.0 512 28.03 512 62.554v386.892C512 483.97 483.97 512 449.446 512H62.554c-34.524.0-62.554-28.03-62.554-62.554V62.554c0-34.524 28.029-62.554 62.554-62.554h386.892zM195.519 424.544c135.939.0 210.268-112.643 210.268-210.268.0-3.218.0-6.437-.153-9.502 14.406-10.421 26.973-23.448 36.935-38.314-13.18 5.824-27.433 9.809-42.452 11.648 15.326-9.196 26.973-23.602 32.49-40.92-14.252 8.429-30.038 14.56-46.896 17.931-13.487-14.406-32.644-23.295-53.946-23.295-40.767.0-73.87 33.104-73.87 73.87.0 5.824.613 11.494 1.992 16.858-61.456-3.065-115.862-32.49-152.337-77.241-6.284 10.881-9.962 23.601-9.962 37.088.0 25.594 13.027 48.276 32.95 61.456-12.107-.307-23.448-3.678-33.41-9.196v.92c0 35.862 25.441 65.594 59.311 72.49-6.13 1.686-12.72 2.606-19.464 2.606-4.751.0-9.348-.46-13.946-1.38 9.349 29.426 36.628 50.728 68.965 51.341-25.287 19.771-57.164 31.571-91.8 31.571-5.977.0-11.801-.306-17.625-1.073 32.337 21.15 71.264 33.41 112.95 33.41z"/></svg>
+</a>
+<a target=_blank rel="noopener noreferrer" aria-label="share Build Modern Data Warehouse with dbt-athena on linkedin" href="https://www.linkedin.com/shareArticle?mini=true&url=https%3a%2f%2fkiwamizamurai.github.io%2fposts%2f2022-08-25%2f&title=Build%20Modern%20Data%20Warehouse%20with%20dbt-athena&summary=Build%20Modern%20Data%20Warehouse%20with%20dbt-athena&source=https%3a%2f%2fkiwamizamurai.github.io%2fposts%2f2022-08-25%2f"><svg viewBox="0 0 512 512"><path d="M449.446.0C483.971.0 512 28.03 512 62.554v386.892C512 483.97 483.97 512 449.446 512H62.554c-34.524.0-62.554-28.03-62.554-62.554V62.554c0-34.524 28.029-62.554 62.554-62.554h386.892zM160.461 423.278V197.561h-75.04v225.717h75.04zm270.539.0V293.839c0-69.333-37.018-101.586-86.381-101.586-39.804.0-57.634 21.891-67.617 37.266v-31.958h-75.021c.995 21.181.0 225.717.0 225.717h75.02V297.222c0-6.748.486-13.492 2.474-18.315 5.414-13.475 17.767-27.434 38.494-27.434 27.135.0 38.007 20.707 38.007 51.037v120.768H431zM123.448 88.722C97.774 88.722 81 105.601 81 127.724c0 21.658 16.264 39.002 41.455 39.002h.484c26.165.0 42.452-17.344 42.452-39.002-.485-22.092-16.241-38.954-41.943-39.002z"/></svg>
+</a>
+<a target=_blank rel="noopener noreferrer" aria-label="share Build Modern Data Warehouse with dbt-athena on reddit" href="https://reddit.com/submit?url=https%3a%2f%2fkiwamizamurai.github.io%2fposts%2f2022-08-25%2f&title=Build%20Modern%20Data%20Warehouse%20with%20dbt-athena"><svg viewBox="0 0 512 512"><path d="M449.446.0C483.971.0 512 28.03 512 62.554v386.892C512 483.97 483.97 512 449.446 512H62.554c-34.524.0-62.554-28.03-62.554-62.554V62.554c0-34.524 28.029-62.554 62.554-62.554h386.892zM446 265.638c0-22.964-18.616-41.58-41.58-41.58-11.211.0-21.361 4.457-28.841 11.666-28.424-20.508-67.586-33.757-111.204-35.278l18.941-89.121 61.884 13.157c.756 15.734 13.642 28.29 29.56 28.29 16.407.0 29.706-13.299 29.706-29.701.0-16.403-13.299-29.702-29.706-29.702-11.666.0-21.657 6.792-26.515 16.578l-69.105-14.69c-1.922-.418-3.939-.042-5.585 1.036-1.658 1.073-2.811 2.761-3.224 4.686l-21.152 99.438c-44.258 1.228-84.046 14.494-112.837 35.232-7.468-7.164-17.589-11.591-28.757-11.591-22.965.0-41.585 18.616-41.585 41.58.0 16.896 10.095 31.41 24.568 37.918-.639 4.135-.99 8.328-.99 12.576.0 63.977 74.469 115.836 166.33 115.836s166.334-51.859 166.334-115.836c0-4.218-.347-8.387-.977-12.493 14.564-6.47 24.735-21.034 24.735-38.001zM326.526 373.831c-20.27 20.241-59.115 21.816-70.534 21.816-11.428.0-50.277-1.575-70.522-21.82-3.007-3.008-3.007-7.882.0-10.889 3.003-2.999 7.882-3.003 10.885.0 12.777 12.781 40.11 17.317 59.637 17.317 19.522.0 46.86-4.536 59.657-17.321 3.016-2.999 7.886-2.995 10.885.008 3.008 3.011 3.003 7.882-.008 10.889zm-5.23-48.781c-16.373.0-29.701-13.324-29.701-29.698.0-16.381 13.328-29.714 29.701-29.714 16.378.0 29.706 13.333 29.706 29.714.0 16.374-13.328 29.698-29.706 29.698zM160.91 295.348c0-16.381 13.328-29.71 29.714-29.71 16.369.0 29.689 13.329 29.689 29.71.0 16.373-13.32 29.693-29.689 29.693-16.386.0-29.714-13.32-29.714-29.693z"/></svg>
+</a>
+<a target=_blank rel="noopener noreferrer" aria-label="share Build Modern Data Warehouse with dbt-athena on facebook" href="https://facebook.com/sharer/sharer.php?u=https%3a%2f%2fkiwamizamurai.github.io%2fposts%2f2022-08-25%2f"><svg viewBox="0 0 512 512"><path d="M449.446.0C483.971.0 512 28.03 512 62.554v386.892C512 483.97 483.97 512 449.446 512H342.978V319.085h66.6l12.672-82.621h-79.272v-53.617c0-22.603 11.073-44.636 46.58-44.636H425.6v-70.34s-32.71-5.582-63.982-5.582c-65.288.0-107.96 39.569-107.96 111.204v62.971h-72.573v82.621h72.573V512h-191.104c-34.524.0-62.554-28.03-62.554-62.554V62.554c0-34.524 28.029-62.554 62.554-62.554h386.892z"/></svg>
+</a>
+<a target=_blank rel="noopener noreferrer" aria-label="share Build Modern Data Warehouse with dbt-athena on whatsapp" href="https://api.whatsapp.com/send?text=Build%20Modern%20Data%20Warehouse%20with%20dbt-athena%20-%20https%3a%2f%2fkiwamizamurai.github.io%2fposts%2f2022-08-25%2f"><svg viewBox="0 0 512 512"><path d="M449.446.0C483.971.0 512 28.03 512 62.554v386.892C512 483.97 483.97 512 449.446 512H62.554c-34.524.0-62.554-28.03-62.554-62.554V62.554c0-34.524 28.029-62.554 62.554-62.554h386.892zm-58.673 127.703c-33.842-33.881-78.847-52.548-126.798-52.568-98.799.0-179.21 80.405-179.249 179.234-.013 31.593 8.241 62.428 23.927 89.612l-25.429 92.884 95.021-24.925c26.181 14.28 55.659 21.807 85.658 21.816h.074c98.789.0 179.206-80.413 179.247-179.243.018-47.895-18.61-92.93-52.451-126.81zM263.976 403.485h-.06c-26.734-.01-52.954-7.193-75.828-20.767l-5.441-3.229-56.386 14.792 15.05-54.977-3.542-5.637c-14.913-23.72-22.791-51.136-22.779-79.287.033-82.142 66.867-148.971 149.046-148.971 39.793.014 77.199 15.531 105.329 43.692 28.128 28.16 43.609 65.592 43.594 105.4-.034 82.149-66.866 148.983-148.983 148.984zm81.721-111.581c-4.479-2.242-26.499-13.075-30.604-14.571-4.105-1.495-7.091-2.241-10.077 2.241-2.986 4.483-11.569 14.572-14.182 17.562-2.612 2.988-5.225 3.364-9.703 1.12-4.479-2.241-18.91-6.97-36.017-22.23C231.8 264.15 222.81 249.484 220.198 245s-.279-6.908 1.963-9.14c2.016-2.007 4.48-5.232 6.719-7.847 2.24-2.615 2.986-4.484 4.479-7.472 1.493-2.99.747-5.604-.374-7.846-1.119-2.241-10.077-24.288-13.809-33.256-3.635-8.733-7.327-7.55-10.077-7.688-2.609-.13-5.598-.158-8.583-.158-2.986.0-7.839 1.121-11.944 5.604-4.105 4.484-15.675 15.32-15.675 37.364.0 22.046 16.048 43.342 18.287 46.332 2.24 2.99 31.582 48.227 76.511 67.627 10.685 4.615 19.028 7.371 25.533 9.434 10.728 3.41 20.492 2.929 28.209 1.775 8.605-1.285 26.499-10.833 30.231-21.295 3.732-10.464 3.732-19.431 2.612-21.298-1.119-1.869-4.105-2.99-8.583-5.232z"/></svg>
+</a>
+<a target=_blank rel="noopener noreferrer" aria-label="share Build Modern Data Warehouse with dbt-athena on telegram" href="https://telegram.me/share/url?text=Build%20Modern%20Data%20Warehouse%20with%20dbt-athena&url=https%3a%2f%2fkiwamizamurai.github.io%2fposts%2f2022-08-25%2f"><svg viewBox="2 2 28 28"><path d="M26.49 29.86H5.5a3.37 3.37.0 01-2.47-1 3.35 3.35.0 01-1-2.47V5.48A3.36 3.36.0 013 3 3.37 3.37.0 015.5 2h21A3.38 3.38.0 0129 3a3.36 3.36.0 011 2.46V26.37a3.35 3.35.0 01-1 2.47 3.38 3.38.0 01-2.51 1.02zm-5.38-6.71a.79.79.0 00.85-.66L24.73 9.24a.55.55.0 00-.18-.46.62.62.0 00-.41-.17q-.08.0-16.53 6.11a.59.59.0 00-.41.59.57.57.0 00.43.52l4 1.24 1.61 4.83a.62.62.0 00.63.43.56.56.0 00.4-.17L16.54 20l4.09 3A.9.9.0 0021.11 23.15zM13.8 20.71l-1.21-4q8.72-5.55 8.78-5.55c.15.0.23.0.23.16a.18.18.0 010 .06s-2.51 2.3-7.52 6.8z"/></svg>
+</a>
+</div>
+</footer>
+</article>
+</main>
+<footer class=footer>
+<span>&copy; 2022 <a href=https://kiwamizamurai.github.io/>terakoya</a></span>
+<span>
+Powered by
+<a href=https://gohugo.io/ rel="noopener noreferrer" target=_blank>Hugo</a> &
+        <a href=https://git.io/hugopapermod rel=noopener target=_blank>PaperMod</a>
+</span>
+</footer>
+<a href=#top aria-label="go to top" title="Go to Top (Alt + G)" class=top-link id=top-link accesskey=g><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 6" fill="currentcolor"><path d="M12 6H0l6-6z"/></svg>
+</a>
+<script>let menu=document.getElementById('menu');menu&&(menu.scrollLeft=localStorage.getItem("menu-scroll-position"),menu.onscroll=function(){localStorage.setItem("menu-scroll-position",menu.scrollLeft)}),document.querySelectorAll('a[href^="#"]').forEach(a=>{a.addEventListener("click",function(b){b.preventDefault();var a=this.getAttribute("href").substr(1);window.matchMedia('(prefers-reduced-motion: reduce)').matches?document.querySelector(`[id='${decodeURIComponent(a)}']`).scrollIntoView():document.querySelector(`[id='${decodeURIComponent(a)}']`).scrollIntoView({behavior:"smooth"}),a==="top"?history.replaceState(null,null," "):history.pushState(null,null,`#${a}`)})})</script>
+<script>var mybutton=document.getElementById("top-link");window.onscroll=function(){document.body.scrollTop>800||document.documentElement.scrollTop>800?(mybutton.style.visibility="visible",mybutton.style.opacity="1"):(mybutton.style.visibility="hidden",mybutton.style.opacity="0")}</script>
+<script>document.getElementById("theme-toggle").addEventListener("click",()=>{document.body.className.includes("dark")?(document.body.classList.remove('dark'),localStorage.setItem("pref-theme",'light')):(document.body.classList.add('dark'),localStorage.setItem("pref-theme",'dark'))})</script>
+</body>
+</html>

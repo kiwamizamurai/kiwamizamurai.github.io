@@ -11,6 +11,15 @@
     <generator>Hugo -- gohugo.io</generator>
     <lastBuildDate>Mon, 25 Apr 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://kiwamizamurai.github.io/index.xml" rel="self" type="application/rss+xml" />
     <item>
+      <title>Build Modern Data Warehouse with dbt-athena</title>
+      <link>https://kiwamizamurai.github.io/posts/2022-08-25/</link>
+      <pubDate>Mon, 25 Apr 2022 00:00:00 +0000</pubDate>
+      
+      <guid>https://kiwamizamurai.github.io/posts/2022-08-25/</guid>
+      <description>useful data warehouse</description>
+    </item>
+    
+    <item>
       <title>How to implement NN from scratch</title>
       <link>https://kiwamizamurai.github.io/posts/2022-04-25/</link>
       <pubDate>Mon, 25 Apr 2022 00:00:00 +0000</pubDate>
