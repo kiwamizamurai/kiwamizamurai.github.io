@@ -78,8 +78,6 @@ params:
     Content: "OR than ML 👐 🍑🍑"
 
   socialIcons:
-    - name: twitter
-      url: "https://twitter.com/umasikate1"
     - name: github
       url: "https://github.com/kiwamizamurai"
 
