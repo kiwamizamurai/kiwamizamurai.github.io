@@ -14,7 +14,6 @@ description: "Neural Network with Numpy"
 # canonicalURL: "https://canonical.url/to/page"
 disableHLJS: true # to disable highlightjs
 disableShare: false
-disableHLJS: false
 hideSummary: false
 searchHidden: false
 ShowReadingTime: true
@@ -227,7 +226,7 @@ $\frac{\partial E}{\partial W_{1}}$ must have the same dimensions as $W_1 ~(id \
 
 It's time to implement this. As a dataset, I use iris from sklearn. For the sake of validation of our implementation, I utilized the loss and accuracy.
 
-{{< gist kiwamizamurai 3fdd2f6a0f3c6b963e30ae1f4549384e >}}
+<script src="https://gist.github.com/kiwamizamurai/3fdd2f6a0f3c6b963e30ae1f4549384e.js"></script>
 
 # References
 
