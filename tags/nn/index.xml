@@ -5,19 +5,152 @@
     <link>https://kiwamizamurai.github.io/tags/nn/</link>
     <description>Recent content in NN on terakoya</description>
     <image>
+      <title>terakoya</title>
       <url>https://avatars.githubusercontent.com/u/24860100</url>
       <link>https://avatars.githubusercontent.com/u/24860100</link>
     </image>
-    <generator>Hugo -- gohugo.io</generator>
-    <lastBuildDate>Mon, 25 Apr 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://kiwamizamurai.github.io/tags/nn/index.xml" rel="self" type="application/rss+xml" />
+    <generator>Hugo</generator>
+    <language>en</language>
+    <lastBuildDate>Mon, 25 Apr 2022 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://kiwamizamurai.github.io/tags/nn/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>How to implement NN from scratch</title>
       <link>https://kiwamizamurai.github.io/posts/2022-04-25/</link>
       <pubDate>Mon, 25 Apr 2022 00:00:00 +0000</pubDate>
-      
       <guid>https://kiwamizamurai.github.io/posts/2022-04-25/</guid>
       <description>Neural Network with Numpy</description>
+      <content:encoded><![CDATA[<h1 id="abstruct">Abstruct</h1>
+<p>In this post, I am going to explain how mathematics is involved with Neural Network and how to implement it with only numpy.</p>
+<h1 id="content">Content</h1>
+<p><code>this post was written when I was a junior student. Therefore, there might be some mistakes. Please leave the comment below.</code></p>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li>rudimentary calculus knowledge
+<ul>
+<li>Chain Rule</li>
+<li>Jacobi-Matrix</li>
+</ul>
+</li>
+</ul>
+<p>This sections help you learn to take derivatives of vectors, matrices, and higher order tensors, thereby making you understand the following part.</p>
+<h3 id="derivative">derivative</h3>
+<p>As you know, this equation holds.</p>
+<p>$$\begin{array}{c}\vec{y}=\vec{x} W \\  \frac{d \vec{y}}{d \vec{x}}=W \end{array}$$</p>
+<p>What is the derivative? What does it mean? In short, derivative is how sensitivie the specific variable with regard to a certain variable is. Jacobian matrix is a good example.</p>
+<p>$$J_f(x) = \left[\frac{\partial f}{\partial x_{1}} \cdots \frac{\partial f}{\partial x_{n}}\right] = \left[\begin{array}{ccc}\frac{\partial f_{1}}{\partial x_{1}} &amp; \cdots &amp; \frac{\partial f_{1}}{\partial x_{n}} \\ \vdots &amp; \ddots &amp; \vdots \\ \frac{\partial f_{m}}{\partial x_{1}} &amp; \cdots &amp; \frac{\partial f_{m}}{\partial x_{n}} \end{array}\right]$$</p>
+<p>The shape is $m \times n$ due to the fact that the number of all combination of variables is $m \times n$.</p>
+<h3 id="vecotr-by-matrix">vecotr by matrix</h3>
+<p>What happens if I differentiate a vector by a matrix. The possible number of combinations of each variable will be</p>
+<p>$$\texttt{length of vector} \times \texttt{shape of matrix}$$</p>
+<p>(<strong>vector</strong> varies along one coordinate while <strong>matrix</strong> varies along two coordinates)</p>
+<p>Let&rsquo;s validate this step by step</p>
+<p>$$\vec{y}_{3} = \vec{x}_{1} W_{1,3} + \vec{x}_{2} W_{2,3} + \ldots + \vec{x}_{D} W_{D, 3}$$</p>
+<p>$$\frac{\partial \vec{y}_{3}}{\partial W_{7,8}}=0 ~~~~ \frac{\partial \vec{y}_{3}}{\partial W_{2,3}}=\vec{x}_{2}$$</p>
+<p>In general, when the index of the $\vec{y}$ component is equal to the second index of $W$, the derivative will be non-zero, but will be zero otherwise. We can write:</p>
+<p>$$\frac{\partial\vec{y}_{j}}{\partial W_{i, j}} = \vec{x}_{i}$$</p>
+<p>but the other elements of the 3-d array will be 0. If we let $F$ represent the 3d array representing the derivative of $\vec{y}$ with respect to $W$, where</p>
+<p>$$F_{i, j, k}=\frac{\partial \vec{y}_{i}}{\partial W_{j,k}}$$</p>
+<p>then</p>
+<p>$$F_{i, j, i}=\vec{x}_{j}$$</p>
+<p>The thing is that all other entries of $F$ are actually zero. Finally, if we define a new two-dimensional array G as</p>
+<p>$$G_{i, j}=F_{i, j, i}$$</p>
+<p>we can see that all of the information we need about $F$ can be stored in $G$, and that the non-trivial portion of $F$ is really two-dimensional, not three-dimensional.</p>
+<h3 id="matrix-by-matrix">matrix by matrix</h3>
+<p>In implementations of machine learning, we have to deal with a matrix instead of a single vector.</p>
+<p>Let’s assume that each individual $\vec{x}$ is a row vector of length $D$, and that $X$ is a two-dimensional array with $N$ rows and $D$ columns. $W$, as in our last example, will be a matrix with $D$ rows and $C$ columns. $Y$ , given by</p>
+<p>$$
+Y=X W
+$$</p>
+<p>will also be a matrix, with $N$ rows and $C$ columns. Thus, each row of $Y$ will give a row vector associated with the corresponding row of the input $X$.</p>
+<p>$$
+\frac{\partial Y_{a, b}}{\partial X_{c, d}} =
+\begin{cases}
+0  &amp; (a \neq c) \\
+not ~ 0 &amp; (otherwise)
+\end{cases}
+$$</p>
+<p>Furthermore, we can see that</p>
+<p>$$\frac{\partial Y_{i, j}}{\partial X_{i, k}}=\frac{\partial }{\partial X_{i, k}} \left(\sum_{k=1}^{D} X_{i, k} W_{k, j}\right)=W_{k, j}$$</p>
+<p>doesn’t depend at all upon which row of Y and X we are comparing. This is the same as</p>
+<p>$$
+\frac{\partial Y_{i,:}}{\partial X_{i,:}}=W^T
+$$</p>
+<h2 id="seutp">seutp</h2>
+<p>I assume the following architecture.</p>
+<p>$$
+\begin{array}{c}
+\text { True: } t \\
+\text { Loss: } \mathbb{E}[t - y] \\
+\
+\text { Input: } x_{0} \\
+\text { Layer1 output: } x_{1} = f_{1} \left( W_{1} x_{0} \right) \\
+\text { Layer2 output: } x_{2} = f_{2} \left( W_{2} x_{1} \right) \\
+\text { Output: } x_{3} = f_{3} \left( W_{3} x_{2} \right) \\
+\end{array}
+$$</p>
+<p>For the sake of implementation, I rewrite this with Matrix.</p>
+<p>$$
+\begin{array}{c}
+\text { True: } T \\
+\text { Objective: } \mathbb{E}[T - Y] \\
+\\
+\text { Input: } X_{0} \\
+\text { Layer1 output: } X_{1} = f_{1} \left( X_{0} W_{1} \right) \\
+\text { Layer2 output: } X_{2} = f_{2} \left( X_{1} W_{2} \right) \\
+\text { Output: } X_{3} = f_{3} \left( X_{2} W_{3} \right) \\
+\end{array}
+$$</p>
+<p>and the each dimension is as follows</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>in      : id
+</span></span><span style="display:flex;"><span>layer_1 : h1
+</span></span><span style="display:flex;"><span>layer_2 : h2
+</span></span><span style="display:flex;"><span>out     : od
+</span></span></code></pre></div><h2 id="backpropagation">backpropagation</h2>
+<p>As a loss fuction, I use customized-MSE:</p>
+<p>$$ \mathbb{E}[T - Y] = \frac{1}{2} |X_3 - T|_2^2 $$</p>
+<p>Then, let&rsquo;s derive the derivative w.r.t each Weight.</p>
+<p>w.r.t. $W_{3}$</p>
+<p>$$
+\begin{aligned}
+\frac{\partial E}{\partial W_{3}} &amp;= \frac{\partial E}{\partial X_{3}} \frac{\partial X_{3}}{\partial W_{3}} \\
+&amp;=\left(X_{3}-T\right) \frac{\partial X_{3}}{\partial W_{3}} \\
+&amp;=\left[\left(X_{3}-T\right) \circ f_{3}^{\prime}\left( X_{2} W_{3} \right)\right] \frac{\partial X_{2} W_{3} }{\partial W_{3}} \\
+&amp;= X_{2}^{T} \delta_{3} \\
+\text { where } \delta_{3} &amp;=\left[\left(X_{3}-T\right) \circ f_{3}^{\prime}\left( X_{2} W_{3} \right)\right] \\
+\end{aligned}
+$$</p>
+<p>$\frac{\partial E}{\partial W_{3}}$ must have the same dimensions as $W_3 ~(h2 \times od)$. $\delta_3$ is $n \times od$. And $X_2$ is $n \times h2$</p>
+<p>w.r.t. $W_{2}$</p>
+<p>$$
+\begin{aligned}
+\frac{\partial E}{\partial W_{2}} &amp;= \frac{\partial E}{\partial X_{3}} \frac{\partial X_{3}}{\partial W_{2}} \\
+&amp;=\left(X_{3}-T\right) \frac{\partial X_{3}}{\partial W_{2}} \\
+&amp;=\left[\left(X_{3}-t\right) \circ f_{3}^{\prime}\left( X_{2} W_{3} \right)\right] \frac{\partial\left( X_{2} W_{3} \right)}{\partial W_{2}} \\
+&amp;=\delta_{3} \frac{\partial\left(X_{2} W_{3} \right)}{\partial W_{2}} \\
+&amp;=\delta_{3} \frac{\partial\left( X_{2} W_{3} \right)}{\partial X_{2}} \frac{\partial X_{2}}{\partial W_{2}} \\
+&amp;= \delta_{3} W_{3}^{T} \frac{\partial X_{2}}{\partial W_{2}} \\
+&amp;=\left[\delta_{3} W_{3}^{T} \circ f_{2}^{\prime}\left( X_{1} W_{2} \right)\right] \frac{\partial  X_{1} W_{2} }{\partial W_{2}} \\
+&amp;= X_{1}^{T} \delta_{2} \\
+\text { where } \delta_{2} &amp;=\left[ \delta_{3} W_{3}^{T} \circ f_{2}^{\prime}\left(  X_{1} W_{2} )\right)\right] \\
+\end{aligned}
+$$</p>
+<p>$\frac{\partial E}{\partial W_{2}}$ must have the same dimensions as $W_2 ~(h1 \times h2)$. $\delta_2$ is $n \times h2$. And $X_1$ is $n \times h1$</p>
+<p>w.r.t. $W_{1}$</p>
+<p>$$
+\begin{aligned}
+\frac{\partial E}{\partial W_{1}} &amp;=\left[W_{2}^{T} \delta_{2} \circ f_{1}^{\prime}\left( X_{0} W_{1} \right)\right] X_{0}^{T} \\
+&amp;= X_{0}^{T} \delta_{1}
+\end{aligned}
+$$</p>
+<p>$\frac{\partial E}{\partial W_{1}}$ must have the same dimensions as $W_1 ~(id \times h1)$. $\delta_1$ is $n \times h1$. And $X_0$ is $n \times id$</p>
+<h2 id="code">code</h2>
+<p>It&rsquo;s time to implement this. As a dataset, I use iris from sklearn. For the sake of validation of our implementation, I utilized the loss and accuracy.</p>
+<script src="https://gist.github.com/kiwamizamurai/3fdd2f6a0f3c6b963e30ae1f4549384e.js"></script>
+<h1 id="references">References</h1>
+<ul>
+<li><a href="http://cs231n.stanford.edu/vecDerivs.pdf">Vector, Matrix, and Tensor Derivatives by Erik Learned-Miller</a></li>
+</ul>
+]]></content:encoded>
     </item>
-    
   </channel>
 </rss>

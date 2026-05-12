@@ -5,37 +5,510 @@
     <link>https://kiwamizamurai.github.io/posts/</link>
     <description>Recent content in Posts on terakoya</description>
     <image>
+      <title>terakoya</title>
       <url>https://avatars.githubusercontent.com/u/24860100</url>
       <link>https://avatars.githubusercontent.com/u/24860100</link>
     </image>
-    <generator>Hugo -- gohugo.io</generator>
-    <lastBuildDate>Mon, 25 Apr 2022 00:00:00 +0000</lastBuildDate><atom:link href="https://kiwamizamurai.github.io/posts/index.xml" rel="self" type="application/rss+xml" />
+    <generator>Hugo</generator>
+    <language>en</language>
+    <lastBuildDate>Mon, 25 Apr 2022 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://kiwamizamurai.github.io/posts/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>Build Modern Data Warehouse with dbt-athena</title>
       <link>https://kiwamizamurai.github.io/posts/2022-08-25/</link>
       <pubDate>Mon, 25 Apr 2022 00:00:00 +0000</pubDate>
-      
       <guid>https://kiwamizamurai.github.io/posts/2022-08-25/</guid>
       <description>useful data warehouse</description>
+      <content:encoded><![CDATA[<h1 id="abstruct">Abstruct</h1>
+<p>With the development of modern data stacks, it is getting way easy to establish an useful data infrastructure. A lot of people spent much time to investigate and build them. However, as for dbt x aws, there are no resources on the internet. Therefore, I am going to give you a lecture about that.</p>
+<h1 id="goal">Goal</h1>
+<p>I reckon that providing the results makes you understood more efficiently, so pasting some pictures.</p>
+<p><img alt="sample5" loading="lazy" src="/posts/2022-08-25/sample5.png"></p>
+<p><img alt="sample1" loading="lazy" src="/posts/2022-08-25/sample1.png"></p>
+<p><img alt="sample2" loading="lazy" src="/posts/2022-08-25/sample2.png"></p>
+<p><img alt="sample3" loading="lazy" src="/posts/2022-08-25/sample3.png"></p>
+<p><img alt="sample4" loading="lazy" src="/posts/2022-08-25/sample4.png"></p>
+<p>Some people might be surprised because of the multiple databases. Actually, the idea behind the dbt is to use single database.</p>
+<ul>
+<li><a href="https://docs.getdbt.com/docs/faqs/connecting-to-two-dbs-not-allowed">https://docs.getdbt.com/docs/faqs/connecting-to-two-dbs-not-allowed</a></li>
+</ul>
+<h1 id="content">Content</h1>
+<p>First of all, I am going to split my data-warehouse into 4 layers for better data management.</p>
+<ul>
+<li>raw layer
+<ul>
+<li>store data as raw format, responsible for copying the datasource</li>
+</ul>
+</li>
+<li>interface layer
+<ul>
+<li>canonicalize data</li>
+</ul>
+</li>
+<li>warehouse layer
+<ul>
+<li>build the specific domain data by aggregation</li>
+</ul>
+</li>
+<li>mart layer
+<ul>
+<li>store data for reverseETL</li>
+</ul>
+</li>
+</ul>
+<h2 id="prerequisites">Prerequisites</h2>
+<p>In addition, I assume that the required infra resources such as athena-database have already been created. In my case, those are produced by terraform. The sample code is located on here.</p>
+<ul>
+<li><a href="https://github.com/kiwamizamurai/tmp">https://github.com/kiwamizamurai/tmp</a></li>
+</ul>
+<h2 id="steps">Steps</h2>
+<p>Ok we are ready. The instruction itself is straightforward.</p>
+<ol>
+<li>install dbt-athena and create project</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>mkdir tmp
+</span></span><span style="display:flex;"><span>cd tmp
+</span></span><span style="display:flex;"><span>poetry init
+</span></span><span style="display:flex;"><span>poetry add dbt-core
+</span></span><span style="display:flex;"><span>poetry add dbt-athena-adapter
+</span></span></code></pre></div><p>configure dbt as follows</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>❯ poetry run dbt init my_dbt_project
+</span></span><span style="display:flex;"><span>23:02:56  Running with dbt<span style="color:#f92672">=</span>1.2.0
+</span></span><span style="display:flex;"><span>23:02:56  Creating dbt configuration folder at /Users/your_name/.dbt
+</span></span><span style="display:flex;"><span>Enter a name <span style="color:#66d9ef">for</span> your project <span style="color:#f92672">(</span>letters, digits, underscore<span style="color:#f92672">)</span>: my_dbt_project
+</span></span><span style="display:flex;"><span>Which database would you like to use?
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>1<span style="color:#f92672">]</span> athena
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">(</span>Don<span style="color:#e6db74">&#39;t see the one you want? https://docs.getdbt.com/docs/available-adapters)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">Enter a number: 1
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">s3_staging_dir (S3 location to store Athena query results and metadata): s3://hogehoge-bucket/athena_output_location/
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">region_name (AWS region of your Athena instance): ap-northeast-1
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">schema (Specify the schema (Athena database) to build models into (lowercase only)): some_athena_database_for_default
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">database (Specify the database (Data catalog) to build models into (lowercase only)): awsdatacatalog
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">23:04:22  Profile my_dbt_project written to /Users/your_name/.dbt/profiles.yml using target&#39;</span>s profile_template.yml and your supplied values. Run <span style="color:#e6db74">&#39;dbt debug&#39;</span> to validate the connection.
+</span></span><span style="display:flex;"><span>23:04:22
+</span></span><span style="display:flex;"><span>Your new dbt project <span style="color:#e6db74">&#34;my_dbt_project&#34;</span> was created!
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>For more information on how to configure the profiles.yml file,
+</span></span><span style="display:flex;"><span>please consult the dbt documentation here:
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  https://docs.getdbt.com/docs/configure-your-profile
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>One more thing:
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Need help? Don<span style="color:#960050;background-color:#1e0010">&#39;</span>t hesitate to reach out to us via GitHub issues or on Slack:
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  https://community.getdbt.com/
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Happy modeling!
+</span></span></code></pre></div><ol start="2">
+<li>create <code>tmp/my_dbt_project/profiles.yml</code>  for the connection of athena
+<ol>
+<li>By default, this configuration file is created at <code>/Users/your_name/.dbt/profiles.yml</code></li>
+<li>if you belongs to some team, it might be a good idea to share this. And I do so.</li>
+</ol>
+</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">my_dbt_project</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">target</span>: <span style="color:#ae81ff">dev</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">outputs</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">dev</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">type</span>: <span style="color:#ae81ff">athena</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">s3_staging_dir</span>: <span style="color:#ae81ff">s3://hogehoge-bucket/athena_output_location/</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">region_name</span>: <span style="color:#ae81ff">ap-northeast-1</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">schema</span>: <span style="color:#ae81ff">some_athena_database_for_default</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">database</span>: <span style="color:#ae81ff">awsdatacatalog</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">poll_interval</span>: <span style="color:#ae81ff">5</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">work_group</span>: <span style="color:#ae81ff">some_athena_work_group</span> <span style="color:#75715e"># enforce_workgroup_configuration = false</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">num_retries</span>: <span style="color:#ae81ff">1</span>
+</span></span></code></pre></div><ol start="3">
+<li>confirm the connection is healthy</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span> poetry run dbt debug --project-dir ./ --profiles-dir ./
+</span></span></code></pre></div><ol start="4">
+<li>create a macro <code>tmp/my_dbt_project/macros/get_custom_schema.sql</code> for custom schema so that we can use multiple databases</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">{</span><span style="color:#f92672">%</span> macro generate_schema_name(custom_schema_name, node) <span style="color:#f92672">-%</span><span style="color:#960050;background-color:#1e0010">}</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#960050;background-color:#1e0010">{</span><span style="color:#f92672">%-</span> <span style="color:#66d9ef">set</span> default_schema <span style="color:#f92672">=</span> target.<span style="color:#66d9ef">schema</span> <span style="color:#f92672">-%</span><span style="color:#960050;background-color:#1e0010">}</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#960050;background-color:#1e0010">{</span><span style="color:#f92672">%-</span> <span style="color:#66d9ef">if</span> custome_schema_name <span style="color:#66d9ef">is</span> <span style="color:#66d9ef">none</span> <span style="color:#f92672">-%</span><span style="color:#960050;background-color:#1e0010">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#960050;background-color:#1e0010">{{</span> default_schema <span style="color:#960050;background-color:#1e0010">}}</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#960050;background-color:#1e0010">{</span><span style="color:#f92672">%-</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">-%</span><span style="color:#960050;background-color:#1e0010">}</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#960050;background-color:#1e0010">{{</span> custom_schema_name <span style="color:#f92672">|</span> <span style="color:#66d9ef">trim</span> <span style="color:#960050;background-color:#1e0010">}}</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#960050;background-color:#1e0010">{</span><span style="color:#f92672">%-</span> endif <span style="color:#f92672">-%</span><span style="color:#960050;background-color:#1e0010">}</span>
+</span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">{</span><span style="color:#f92672">%-</span> endmacro <span style="color:#f92672">%</span><span style="color:#960050;background-color:#1e0010">}</span>
+</span></span></code></pre></div><ol start="5">
+<li>stratify the directory by modifying the models section of <code>tmp/my_dbt_project/dbt_project.yml</code>
+<ol>
+<li>the right-hand side is the name for actual <code>aws_athena_database</code> resource</li>
+<li>the left-hand side is the folder name corresponding to the resource
+<ol>
+<li><code>tmp/my_dbt_project/models/{raw,interface,warehouse,mart}</code></li>
+</ol>
+</li>
+</ol>
+</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">models</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">my_dbt_project</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">raw</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">schema</span>: <span style="color:#ae81ff">raw</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">+materialized</span>: <span style="color:#ae81ff">table</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">interface</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">schema</span>: <span style="color:#ae81ff">interface</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">+materialized</span>: <span style="color:#ae81ff">table</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">warehouse</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">schema</span>: <span style="color:#ae81ff">warehouse</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">+materialized</span>: <span style="color:#ae81ff">table</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">mart</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">schema</span>: <span style="color:#ae81ff">mart</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">+materialized</span>: <span style="color:#ae81ff">table</span>
+</span></span></code></pre></div><ol start="6">
+<li>
+<p>prepare the sample athena-dataset, athena-table and csv file</p>
+<ol>
+<li>create athena-database which is called <code>raw</code></li>
+<li>create athena-table in <code>raw</code> database which is called sample
+<ol>
+<li>image that name sample is the name of some particular table which is integrated from any datasource</li>
+<li>Parameter Location should be <code>s3://hogehoge-bucket/athena_output_location/raw/sample/</code></li>
+</ol>
+</li>
+<li>upload sample.csv on <code>s3://hogehoge-bucket/athena_output_location/raw/sample/</code></li>
+</ol>
+</li>
+<li>
+<p>create <code>tmp/my_dbt_project/models/raw/sample_source.yaml</code></p>
+</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">version</span>: <span style="color:#ae81ff">2</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">sources</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">raw</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">tables</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">sample</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">identifier</span>: <span style="color:#e6db74">&#34;\&#34;sample\&#34;&#34;</span> <span style="color:#75715e"># like this</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">columns</span>:
+</span></span><span style="display:flex;"><span>          - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">col1</span>
+</span></span><span style="display:flex;"><span>          - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">col2</span>
+</span></span></code></pre></div><ol start="8">
+<li>write a sample sql for the interface layer <code>tmp/my_dbt_project/models/interface/sample.sql</code>
+<ol>
+<li>need to specify <code>external_location</code></li>
+</ol>
+</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-sql" data-lang="sql"><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">{{</span>
+</span></span><span style="display:flex;"><span>    config(
+</span></span><span style="display:flex;"><span>        materialized<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;table&#39;</span>,
+</span></span><span style="display:flex;"><span>        format<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;textfile&#39;</span>,
+</span></span><span style="display:flex;"><span>        external_location<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;s3://hogehoge-bucket/athena_output_location/interface/sample/&#39;</span>
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span><span style="color:#960050;background-color:#1e0010">}}</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">select</span> col1 <span style="color:#66d9ef">from</span> <span style="color:#960050;background-color:#1e0010">{{</span><span style="color:#66d9ef">source</span>(<span style="color:#e6db74">&#39;raw&#39;</span>, <span style="color:#e6db74">&#39;sample&#39;</span>)<span style="color:#960050;background-color:#1e0010">}}</span>
+</span></span></code></pre></div><ol start="9">
+<li>execute command</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>poetry run dbt run --project-dir ./ --profiles-dir ./
+</span></span></code></pre></div><ol>
+<li>go into the aws console and confirm that athena-database and athena-table is created</li>
+</ol>
+<h1 id="miscellaneous">miscellaneous</h1>
+<p>When you create your own data-warehouse with your like-minded peers, you must want a coding rule on SQL. In this section, I am going to show you how to prepare team development.</p>
+<ol>
+<li>install library</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>poetry add sqlfluff
+</span></span></code></pre></div><ol>
+<li>write a setting of sql linter</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>cd my_dbt_project
+</span></span><span style="display:flex;"><span>touch .sqlfluff
+</span></span><span style="display:flex;"><span>touch .sqlfluffignore
+</span></span></code></pre></div><p><code>.sqlfluff</code> is like this</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span>[<span style="color:#ae81ff">sqlfluff:rules]</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">tab_space_size = 4</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">max_line_length = 80</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">indent_unit = space</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">comma_style = trailing</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>[<span style="color:#ae81ff">sqlfluff:rules:L010]</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">capitalisation_policy = lower</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>[<span style="color:#ae81ff">sqlfluff:rules:L011]</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Aliasing preference for tables</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">aliasing = explicit</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>[<span style="color:#ae81ff">sqlfluff:rules:L012]</span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e"># Aliasing preference for columns</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">aliasing = explicit</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>[<span style="color:#ae81ff">sqlfluff:rules:L014]</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">capitalisation_policy = lower</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">unquoted_identifiers_policy = column_aliases</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>[<span style="color:#ae81ff">sqlfluff:rules:L016]</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">ignore_comment_lines = True</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">max_line_length = 100</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">tab_space_size = 2</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>[<span style="color:#ae81ff">sqlfluff]</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">templater = dbt</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">dialect = athena</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>[<span style="color:#ae81ff">sqlfluff:templater:dbt]</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">project_dir = .</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">profiles_dir = .</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">profile = my_dbt_project</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">target = dev</span>
+</span></span></code></pre></div><p><code>.sqlfluffignore</code> is like this</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#ae81ff">dbt_packages/</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">macros/</span>
+</span></span></code></pre></div><ol>
+<li>confirm sqlfluff works well</li>
+</ol>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-bash" data-lang="bash"><span style="display:flex;"><span>❯ poetry run sqlfluff lint ./models/mart/should_be_formatted.sql
+</span></span><span style="display:flex;"><span><span style="color:#f92672">==</span> <span style="color:#f92672">[</span>my_dbt_project/models/mart/should_be_formatted.sql<span style="color:#f92672">]</span> FAIL
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>L:   <span style="color:#ae81ff">1</span> | P:   <span style="color:#ae81ff">1</span> | L050 | Files must not begin with newlines or whitespace.
+</span></span><span style="display:flex;"><span>L:  <span style="color:#ae81ff">10</span> | P:   <span style="color:#ae81ff">1</span> | L046 | Jinja tags should have a single whitespace on either
+</span></span><span style="display:flex;"><span>                       | side: <span style="color:#f92672">{{</span>config<span style="color:#f92672">(</span>materialized<span style="color:#f92672">=</span><span style="color:#e6db74">&#39;table&#39;</span><span style="color:#f92672">)}}</span>
+</span></span><span style="display:flex;"><span>L:  <span style="color:#ae81ff">14</span> | P:   <span style="color:#ae81ff">5</span> | L036 | Select targets should be on a new line unless there is
+</span></span><span style="display:flex;"><span>                       | only one <span style="color:#66d9ef">select</span> target.
+</span></span><span style="display:flex;"><span>L:  <span style="color:#ae81ff">16</span> | P:   <span style="color:#ae81ff">5</span> | L036 | Select targets should be on a new line unless there is
+</span></span><span style="display:flex;"><span>                       | only one <span style="color:#66d9ef">select</span> target.
+</span></span><span style="display:flex;"><span>L:  <span style="color:#ae81ff">20</span> | P:   <span style="color:#ae81ff">1</span> | L010 | Keywords must be lower <span style="color:#66d9ef">case</span>.
+</span></span><span style="display:flex;"><span>L:  <span style="color:#ae81ff">20</span> | P:   <span style="color:#ae81ff">1</span> | L036 | Select targets should be on a new line unless there is
+</span></span><span style="display:flex;"><span>                       | only one <span style="color:#66d9ef">select</span> target.
+</span></span><span style="display:flex;"><span>L:  <span style="color:#ae81ff">20</span> | P:  <span style="color:#ae81ff">11</span> | L012 | Implicit/explicit aliasing of columns.
+</span></span><span style="display:flex;"><span>L:  <span style="color:#ae81ff">20</span> | P:  <span style="color:#ae81ff">28</span> | L012 | Implicit/explicit aliasing of columns.
+</span></span><span style="display:flex;"><span>All Finished 📜 🎉!
+</span></span></code></pre></div><p>Furthermore, I use this linter and formatter with <code>pre-commit.</code></p>
+<p><code>.pre-commit-config.yaml</code></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">repos</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">repo</span>: <span style="color:#ae81ff">https://github.com/pre-commit/pre-commit-hooks</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">rev</span>: <span style="color:#ae81ff">v4.0.1</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">hooks</span>:
+</span></span><span style="display:flex;"><span>    -   <span style="color:#f92672">id</span>: <span style="color:#ae81ff">trailing-whitespace</span>
+</span></span><span style="display:flex;"><span>    -   <span style="color:#f92672">id</span>: <span style="color:#ae81ff">end-of-file-fixer</span>
+</span></span><span style="display:flex;"><span>    -   <span style="color:#f92672">id</span>: <span style="color:#ae81ff">check-added-large-files</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">args</span>: [<span style="color:#e6db74">&#39;--maxkb=60000&#39;</span>]
+</span></span><span style="display:flex;"><span>    -   <span style="color:#f92672">id</span>: <span style="color:#ae81ff">check-toml</span>
+</span></span><span style="display:flex;"><span>    -   <span style="color:#f92672">id</span>: <span style="color:#ae81ff">check-yaml</span>
+</span></span><span style="display:flex;"><span>    -   <span style="color:#f92672">id</span>: <span style="color:#ae81ff">check-json</span>
+</span></span><span style="display:flex;"><span>    -   <span style="color:#f92672">id</span>: <span style="color:#ae81ff">detect-aws-credentials</span>
+</span></span><span style="display:flex;"><span>    -   <span style="color:#f92672">id</span>: <span style="color:#ae81ff">detect-private-key</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">repo</span>: <span style="color:#ae81ff">https://github.com/sqlfluff/sqlfluff</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">rev</span>: <span style="color:#ae81ff">1.3.0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">hooks</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">id</span>: <span style="color:#ae81ff">sqlfluff-lint</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">args</span>: [<span style="color:#e6db74">&#34;--dialect&#34;</span>, <span style="color:#e6db74">&#34;athena&#34;</span>]
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">additional_dependencies</span>:
+</span></span><span style="display:flex;"><span>          [<span style="color:#e6db74">&#34;dbt-athena-adapter&#34;</span>, <span style="color:#e6db74">&#34;sqlfluff-templater-dbt&#34;</span>]
+</span></span></code></pre></div><p>If you have any questions or requests, please leave the comment below. And, I’ll be happy if you like and share this post. Thank you.</p>
+<h1 id="references">References</h1>
+<ul>
+<li><a href="https://github.com/Tomme/dbt-athena">https://github.com/Tomme/dbt-athena</a></li>
+<li><a href="https://github.com/sqlfluff/sqlfluff">https://github.com/sqlfluff/sqlfluff</a></li>
+<li><a href="https://docs.aws.amazon.com/athena/latest/ug/workgroups-troubleshooting.html">https://docs.aws.amazon.com/athena/latest/ug/workgroups-troubleshooting.html</a></li>
+<li><a href="https://zenn.dev/tenajima/articles/f4f99caab361c1">https://zenn.dev/tenajima/articles/f4f99caab361c1</a></li>
+<li><a href="https://pre-commit.com/">https://pre-commit.com/</a></li>
+</ul>
+]]></content:encoded>
     </item>
-    
     <item>
       <title>How to implement NN from scratch</title>
       <link>https://kiwamizamurai.github.io/posts/2022-04-25/</link>
       <pubDate>Mon, 25 Apr 2022 00:00:00 +0000</pubDate>
-      
       <guid>https://kiwamizamurai.github.io/posts/2022-04-25/</guid>
       <description>Neural Network with Numpy</description>
+      <content:encoded><![CDATA[<h1 id="abstruct">Abstruct</h1>
+<p>In this post, I am going to explain how mathematics is involved with Neural Network and how to implement it with only numpy.</p>
+<h1 id="content">Content</h1>
+<p><code>this post was written when I was a junior student. Therefore, there might be some mistakes. Please leave the comment below.</code></p>
+<h2 id="prerequisites">Prerequisites</h2>
+<ul>
+<li>rudimentary calculus knowledge
+<ul>
+<li>Chain Rule</li>
+<li>Jacobi-Matrix</li>
+</ul>
+</li>
+</ul>
+<p>This sections help you learn to take derivatives of vectors, matrices, and higher order tensors, thereby making you understand the following part.</p>
+<h3 id="derivative">derivative</h3>
+<p>As you know, this equation holds.</p>
+<p>$$\begin{array}{c}\vec{y}=\vec{x} W \\  \frac{d \vec{y}}{d \vec{x}}=W \end{array}$$</p>
+<p>What is the derivative? What does it mean? In short, derivative is how sensitivie the specific variable with regard to a certain variable is. Jacobian matrix is a good example.</p>
+<p>$$J_f(x) = \left[\frac{\partial f}{\partial x_{1}} \cdots \frac{\partial f}{\partial x_{n}}\right] = \left[\begin{array}{ccc}\frac{\partial f_{1}}{\partial x_{1}} &amp; \cdots &amp; \frac{\partial f_{1}}{\partial x_{n}} \\ \vdots &amp; \ddots &amp; \vdots \\ \frac{\partial f_{m}}{\partial x_{1}} &amp; \cdots &amp; \frac{\partial f_{m}}{\partial x_{n}} \end{array}\right]$$</p>
+<p>The shape is $m \times n$ due to the fact that the number of all combination of variables is $m \times n$.</p>
+<h3 id="vecotr-by-matrix">vecotr by matrix</h3>
+<p>What happens if I differentiate a vector by a matrix. The possible number of combinations of each variable will be</p>
+<p>$$\texttt{length of vector} \times \texttt{shape of matrix}$$</p>
+<p>(<strong>vector</strong> varies along one coordinate while <strong>matrix</strong> varies along two coordinates)</p>
+<p>Let&rsquo;s validate this step by step</p>
+<p>$$\vec{y}_{3} = \vec{x}_{1} W_{1,3} + \vec{x}_{2} W_{2,3} + \ldots + \vec{x}_{D} W_{D, 3}$$</p>
+<p>$$\frac{\partial \vec{y}_{3}}{\partial W_{7,8}}=0 ~~~~ \frac{\partial \vec{y}_{3}}{\partial W_{2,3}}=\vec{x}_{2}$$</p>
+<p>In general, when the index of the $\vec{y}$ component is equal to the second index of $W$, the derivative will be non-zero, but will be zero otherwise. We can write:</p>
+<p>$$\frac{\partial\vec{y}_{j}}{\partial W_{i, j}} = \vec{x}_{i}$$</p>
+<p>but the other elements of the 3-d array will be 0. If we let $F$ represent the 3d array representing the derivative of $\vec{y}$ with respect to $W$, where</p>
+<p>$$F_{i, j, k}=\frac{\partial \vec{y}_{i}}{\partial W_{j,k}}$$</p>
+<p>then</p>
+<p>$$F_{i, j, i}=\vec{x}_{j}$$</p>
+<p>The thing is that all other entries of $F$ are actually zero. Finally, if we define a new two-dimensional array G as</p>
+<p>$$G_{i, j}=F_{i, j, i}$$</p>
+<p>we can see that all of the information we need about $F$ can be stored in $G$, and that the non-trivial portion of $F$ is really two-dimensional, not three-dimensional.</p>
+<h3 id="matrix-by-matrix">matrix by matrix</h3>
+<p>In implementations of machine learning, we have to deal with a matrix instead of a single vector.</p>
+<p>Let’s assume that each individual $\vec{x}$ is a row vector of length $D$, and that $X$ is a two-dimensional array with $N$ rows and $D$ columns. $W$, as in our last example, will be a matrix with $D$ rows and $C$ columns. $Y$ , given by</p>
+<p>$$
+Y=X W
+$$</p>
+<p>will also be a matrix, with $N$ rows and $C$ columns. Thus, each row of $Y$ will give a row vector associated with the corresponding row of the input $X$.</p>
+<p>$$
+\frac{\partial Y_{a, b}}{\partial X_{c, d}} =
+\begin{cases}
+0  &amp; (a \neq c) \\
+not ~ 0 &amp; (otherwise)
+\end{cases}
+$$</p>
+<p>Furthermore, we can see that</p>
+<p>$$\frac{\partial Y_{i, j}}{\partial X_{i, k}}=\frac{\partial }{\partial X_{i, k}} \left(\sum_{k=1}^{D} X_{i, k} W_{k, j}\right)=W_{k, j}$$</p>
+<p>doesn’t depend at all upon which row of Y and X we are comparing. This is the same as</p>
+<p>$$
+\frac{\partial Y_{i,:}}{\partial X_{i,:}}=W^T
+$$</p>
+<h2 id="seutp">seutp</h2>
+<p>I assume the following architecture.</p>
+<p>$$
+\begin{array}{c}
+\text { True: } t \\
+\text { Loss: } \mathbb{E}[t - y] \\
+\
+\text { Input: } x_{0} \\
+\text { Layer1 output: } x_{1} = f_{1} \left( W_{1} x_{0} \right) \\
+\text { Layer2 output: } x_{2} = f_{2} \left( W_{2} x_{1} \right) \\
+\text { Output: } x_{3} = f_{3} \left( W_{3} x_{2} \right) \\
+\end{array}
+$$</p>
+<p>For the sake of implementation, I rewrite this with Matrix.</p>
+<p>$$
+\begin{array}{c}
+\text { True: } T \\
+\text { Objective: } \mathbb{E}[T - Y] \\
+\\
+\text { Input: } X_{0} \\
+\text { Layer1 output: } X_{1} = f_{1} \left( X_{0} W_{1} \right) \\
+\text { Layer2 output: } X_{2} = f_{2} \left( X_{1} W_{2} \right) \\
+\text { Output: } X_{3} = f_{3} \left( X_{2} W_{3} \right) \\
+\end{array}
+$$</p>
+<p>and the each dimension is as follows</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-fallback" data-lang="fallback"><span style="display:flex;"><span>in      : id
+</span></span><span style="display:flex;"><span>layer_1 : h1
+</span></span><span style="display:flex;"><span>layer_2 : h2
+</span></span><span style="display:flex;"><span>out     : od
+</span></span></code></pre></div><h2 id="backpropagation">backpropagation</h2>
+<p>As a loss fuction, I use customized-MSE:</p>
+<p>$$ \mathbb{E}[T - Y] = \frac{1}{2} |X_3 - T|_2^2 $$</p>
+<p>Then, let&rsquo;s derive the derivative w.r.t each Weight.</p>
+<p>w.r.t. $W_{3}$</p>
+<p>$$
+\begin{aligned}
+\frac{\partial E}{\partial W_{3}} &amp;= \frac{\partial E}{\partial X_{3}} \frac{\partial X_{3}}{\partial W_{3}} \\
+&amp;=\left(X_{3}-T\right) \frac{\partial X_{3}}{\partial W_{3}} \\
+&amp;=\left[\left(X_{3}-T\right) \circ f_{3}^{\prime}\left( X_{2} W_{3} \right)\right] \frac{\partial X_{2} W_{3} }{\partial W_{3}} \\
+&amp;= X_{2}^{T} \delta_{3} \\
+\text { where } \delta_{3} &amp;=\left[\left(X_{3}-T\right) \circ f_{3}^{\prime}\left( X_{2} W_{3} \right)\right] \\
+\end{aligned}
+$$</p>
+<p>$\frac{\partial E}{\partial W_{3}}$ must have the same dimensions as $W_3 ~(h2 \times od)$. $\delta_3$ is $n \times od$. And $X_2$ is $n \times h2$</p>
+<p>w.r.t. $W_{2}$</p>
+<p>$$
+\begin{aligned}
+\frac{\partial E}{\partial W_{2}} &amp;= \frac{\partial E}{\partial X_{3}} \frac{\partial X_{3}}{\partial W_{2}} \\
+&amp;=\left(X_{3}-T\right) \frac{\partial X_{3}}{\partial W_{2}} \\
+&amp;=\left[\left(X_{3}-t\right) \circ f_{3}^{\prime}\left( X_{2} W_{3} \right)\right] \frac{\partial\left( X_{2} W_{3} \right)}{\partial W_{2}} \\
+&amp;=\delta_{3} \frac{\partial\left(X_{2} W_{3} \right)}{\partial W_{2}} \\
+&amp;=\delta_{3} \frac{\partial\left( X_{2} W_{3} \right)}{\partial X_{2}} \frac{\partial X_{2}}{\partial W_{2}} \\
+&amp;= \delta_{3} W_{3}^{T} \frac{\partial X_{2}}{\partial W_{2}} \\
+&amp;=\left[\delta_{3} W_{3}^{T} \circ f_{2}^{\prime}\left( X_{1} W_{2} \right)\right] \frac{\partial  X_{1} W_{2} }{\partial W_{2}} \\
+&amp;= X_{1}^{T} \delta_{2} \\
+\text { where } \delta_{2} &amp;=\left[ \delta_{3} W_{3}^{T} \circ f_{2}^{\prime}\left(  X_{1} W_{2} )\right)\right] \\
+\end{aligned}
+$$</p>
+<p>$\frac{\partial E}{\partial W_{2}}$ must have the same dimensions as $W_2 ~(h1 \times h2)$. $\delta_2$ is $n \times h2$. And $X_1$ is $n \times h1$</p>
+<p>w.r.t. $W_{1}$</p>
+<p>$$
+\begin{aligned}
+\frac{\partial E}{\partial W_{1}} &amp;=\left[W_{2}^{T} \delta_{2} \circ f_{1}^{\prime}\left( X_{0} W_{1} \right)\right] X_{0}^{T} \\
+&amp;= X_{0}^{T} \delta_{1}
+\end{aligned}
+$$</p>
+<p>$\frac{\partial E}{\partial W_{1}}$ must have the same dimensions as $W_1 ~(id \times h1)$. $\delta_1$ is $n \times h1$. And $X_0$ is $n \times id$</p>
+<h2 id="code">code</h2>
+<p>It&rsquo;s time to implement this. As a dataset, I use iris from sklearn. For the sake of validation of our implementation, I utilized the loss and accuracy.</p>
+<script src="https://gist.github.com/kiwamizamurai/3fdd2f6a0f3c6b963e30ae1f4549384e.js"></script>
+<h1 id="references">References</h1>
+<ul>
+<li><a href="http://cs231n.stanford.edu/vecDerivs.pdf">Vector, Matrix, and Tensor Derivatives by Erik Learned-Miller</a></li>
+</ul>
+]]></content:encoded>
     </item>
-    
     <item>
       <title>How to enable latex on PaperMod</title>
       <link>https://kiwamizamurai.github.io/posts/2022-03-06/</link>
       <pubDate>Sun, 06 Mar 2022 00:00:00 +0000</pubDate>
-      
       <guid>https://kiwamizamurai.github.io/posts/2022-03-06/</guid>
       <description>Enable Latex by Katex</description>
+      <content:encoded><![CDATA[<h1 id="abstract">Abstract</h1>
+<p>I&rsquo;ll show you how to allow markdown to display latex. This website uses hugo and it does not have the ability to render latex by default.</p>
+<p><code>$e^2$</code></p>
+<p>In addition, I write down a way to solve a little latex problem.</p>
+<h1 id="content">Content</h1>
+<h2 id="setup">Setup</h2>
+<p>First of all, create a file <code>layouts/partials/extend_head.html</code> with the following content.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-html" data-lang="html"><span style="display:flex;"><span>{{ if or .Params.math .Site.Params.math }}
+</span></span><span style="display:flex;"><span>&lt;<span style="color:#f92672">link</span> <span style="color:#a6e22e">rel</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;stylesheet&#34;</span> <span style="color:#a6e22e">href</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.css&#34;</span> <span style="color:#a6e22e">integrity</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;sha384-MlJdn/WNKDGXveldHDdyRP1R4CTHr3FeuDNfhsLPYrq2t0UBkUdK2jyTnXPEK1NQ&#34;</span> <span style="color:#a6e22e">crossorigin</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;anonymous&#34;</span>&gt;
+</span></span><span style="display:flex;"><span><span style="color:#75715e">&lt;!-- The loading of KaTeX is deferred to speed up page rendering --&gt;</span>
+</span></span><span style="display:flex;"><span>&lt;<span style="color:#f92672">script</span> <span style="color:#a6e22e">defer</span> <span style="color:#a6e22e">src</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/katex.min.js&#34;</span> <span style="color:#a6e22e">integrity</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;sha384-VQ8d8WVFw0yHhCk5E8I86oOhv48xLpnDZx5T9GogA/Y84DcCKWXDmSDfn13bzFZY&#34;</span> <span style="color:#a6e22e">crossorigin</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;anonymous&#34;</span>&gt;&lt;/<span style="color:#f92672">script</span>&gt;
+</span></span><span style="display:flex;"><span><span style="color:#75715e">&lt;!-- To automatically render math in text elements, include the auto-render extension: --&gt;</span>
+</span></span><span style="display:flex;"><span>&lt;<span style="color:#f92672">script</span> <span style="color:#a6e22e">defer</span> <span style="color:#a6e22e">src</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;https://cdn.jsdelivr.net/npm/katex@0.15.2/dist/contrib/auto-render.min.js&#34;</span> <span style="color:#a6e22e">integrity</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;sha384-+XBljXPPiv+OzfbB3cVmLHf4hdUFHlWNZN5spNQ7rmHTXpd7WvJum6fIACpNNfIR&#34;</span> <span style="color:#a6e22e">crossorigin</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;anonymous&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">onload</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;renderMathInElement(document.body);&#34;</span>&gt;&lt;/<span style="color:#f92672">script</span>&gt;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">&lt;!-- for inline --&gt;</span>&gt;
+</span></span><span style="display:flex;"><span>&lt;<span style="color:#f92672">script</span>&gt;
+</span></span><span style="display:flex;"><span>document.<span style="color:#a6e22e">addEventListener</span>(<span style="color:#e6db74">&#34;DOMContentLoaded&#34;</span>, <span style="color:#66d9ef">function</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">renderMathInElement</span>(document.<span style="color:#a6e22e">body</span>, {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">delimiters</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>            {<span style="color:#a6e22e">left</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;$$&#34;</span>, <span style="color:#a6e22e">right</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;$$&#34;</span>, <span style="color:#a6e22e">display</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>},
+</span></span><span style="display:flex;"><span>            {<span style="color:#a6e22e">left</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;$&#34;</span>, <span style="color:#a6e22e">right</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;$&#34;</span>, <span style="color:#a6e22e">display</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span>}
+</span></span><span style="display:flex;"><span>        ]
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>&lt;/<span style="color:#f92672">script</span>&gt;
+</span></span><span style="display:flex;"><span>{{ end }}
+</span></span></code></pre></div><p>Then, add the parameter in order to enable MathJax on <code>config.yml</code> as follows:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;-webkit-text-size-adjust:none;"><code class="language-yml" data-lang="yml"><span style="display:flex;"><span><span style="color:#f92672">params</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">math</span>: <span style="color:#66d9ef">true</span>
+</span></span></code></pre></div><p>That&rsquo;s all. Now I can use latex on hugo.</p>
+<p>$$  \gamma^2+\theta^2=\omega^2 $$</p>
+<h2 id="problem">Problem</h2>
+<p>However, there is a tiny problem, which is that the writing style is a little bit different from pure latex on markdown.</p>
+<blockquote>
+<p>Many markdown processors use the underscore (_) to indicate italics (one at the beginning and one at the end of the text to be italicized). So when your math contains two underscores, Markdown removes them and inserts <em>&hellip;</em> tags (or something equivalent to that) before sending the page to the browser. MathJax doesn&rsquo;t process math that contains HTML tags, so the resulting (modified) math is not typeset.
+The usual solution is to use a backslash to prevent the underscore from being processed by Markdown, so use _ in place of _ in your math. You may also need to double some backslashes (e.g., \ may need to be entered as \\ in a Markdown document).</p>
+</blockquote>
+<p>The quote comes from stackoverflow, namely I have to replace <code>_</code> with <code>\_</code>. There is one more thing, new line requires <code>\\\</code> instead of <code>\\</code></p>
+<h1 id="references">References</h1>
+<ul>
+<li><a href="https://rkilingr.me/posts/katex-hugo/">Using KaTeX in hugo</a></li>
+<li><a href="https://stackoverflow.com/questions/53587872/markdown-latex-driving-me-crazy-with-hugo-on-github">markdown latex driving me crazy with hugo on github</a></li>
+<li><a href="https://github.com/adityatelange/hugo-PaperMod/issues/236">How to enable Math Typesetting in PaperMod? · Issue #236 · adityatelange/hugo-PaperMod</a></li>
+<li><a href="https://github.com/adityatelange/hugo-PaperMod/wiki/FAQs#custom-head--footer">FAQs · adityatelange/hugo-PaperMod Wiki</a></li>
+</ul>
+]]></content:encoded>
     </item>
-    
   </channel>
 </rss>
